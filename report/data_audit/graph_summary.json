@@ -1,22 +1,22 @@
 {
   "all": {
-    "nodes": 100316,
-    "edges": 618015,
-    "components": 1049,
-    "giant_component_share": 0.9487220383587862,
-    "mean_degree": 12.321364488217233,
+    "nodes": 100121,
+    "edges": 616387,
+    "components": 1046,
+    "giant_component_share": 0.9488618771286743,
+    "mean_degree": 12.312841461831184,
     "median_degree": 8.0,
     "max_degree": 1825,
-    "density": 0.0001228267406491276
+    "density": 0.00012298083761317602
   },
   "uts_uts": {
-    "nodes": 14196,
-    "edges": 61801,
-    "components": 341,
-    "giant_component_share": 0.9298393913778529,
-    "mean_degree": 8.706818822203438,
+    "nodes": 14150,
+    "edges": 61567,
+    "components": 339,
+    "giant_component_share": 0.9301766784452297,
+    "mean_degree": 8.702049469964665,
     "median_degree": 4.0,
-    "max_degree": 252,
-    "density": 0.0006133722312225035
+    "max_degree": 250,
+    "density": 0.0006150292932337738
   }
 }

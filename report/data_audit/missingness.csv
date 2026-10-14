@@ -1,8 +1,8 @@
 level,field,n_missing,n_total,handling,share_missing
 work,publication_year,0,63514,dropped,0.0
-work,doi,2040,62140,kept; title+year dedup only,0.03282909559060187
-work,title (empty),56,62140,kept,0.0009011908593498551
-work,abstract,20296,62140,kept; has_abstract=False,0.32661731573865466
-authorship,author_id,10848,348116,dropped,0.03116202645095313
-authorship,institution_ids (empty),12446,337268,kept,0.03690240402291353
-work,no UTS-affiliated identified author,1407,62140,kept,0.02264242034116511
+work,doi,2035,61493,kept; title+year dedup only,0.0330931975997268
+work,title (empty),51,61493,kept,0.0008293626916884849
+work,abstract,19950,61493,kept; has_abstract=False,0.3244271705722603
+authorship,author_id,10123,338522,dropped,0.029903521779972943
+authorship,institution_ids (empty),9514,328399,kept,0.028970855575077878
+work,no UTS-affiliated identified author,1346,61493,kept,0.021888670255150993

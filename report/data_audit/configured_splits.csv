@@ -1,0 +1,4 @@
+split,graph_years,label_window,graph_nodes,graph_edges_distinct,uts_nodes,pos_uts_uts,pos_uts_any_both_seen,pos_both_seen,new_pairs_in_window
+train,<2023,2023-2023,67287,389025,10962,2244,6471,10845,73930
+val,<2024,2024-2024,77933,462955,12376,2216,6757,10881,73351
+test,<2025,2025-2025,88562,536306,13829,2533,7228,11717,80081

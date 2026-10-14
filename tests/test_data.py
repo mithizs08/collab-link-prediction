@@ -55,6 +55,7 @@ def synthetic(tmp_path_factory):
         _work("W9", 2021, [_auth("A8"), _auth("A9")], title="Editorial"),
         _work("W10", 2021, [_auth("A8"), _auth("A6")], title="Editorial"),    # short title: NOT a dup
         _work("W11", 2021, [_auth("A1", name="Jane Smith"), _auth("A20", name="Jane  SMITH")]),
+        _work("W12", 2021, [_auth("A1"), _auth("A99")], wtype="erratum"),  # excluded type
     ]
     snap = tmp / "snap.json"
     snap.write_text(json.dumps(works))
@@ -137,6 +138,13 @@ def test_cleaning_counts(synthetic):
     assert s["hyper_would_be_edges"] == 30 * 29 // 2
     assert s["self_loops_removed"] == 1
     assert s["duplicate_pair_work_rows_removed"] == 1   # (A1,A2) twice in W2
+
+
+def test_excluded_types_dropped(synthetic):
+    assert synthetic["stats"]["excluded_type_dropped"] == 1
+    assert "W12" not in set(synthetic["works"]["work_id"])
+    assert not synthetic["edges"]["work_id"].eq("W12").any()
+    assert "A99" not in set(synthetic["authors"]["author_id"])
 
 
 def test_dedup_keeps_preferred_copy(synthetic):

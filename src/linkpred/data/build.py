@@ -293,6 +293,12 @@ def build(cfg: dict) -> dict:
         stats["out_of_year_range_dropped"] = int((~in_range).sum())
         works = works[in_range]
 
+    # 1b. non-collaboration work types (before dedup, so they can never be the kept copy)
+    excluded = works["type"].isin(d.get("exclude_types") or [])
+    stats["excluded_type_dropped"] = int(excluded.sum())
+    stats["excluded_type_counts"] = works.loc[excluded, "type"].value_counts().to_dict()
+    works = works[~excluded]
+
     # 2. duplicates
     works, dup_stats = deduplicate(works, auth[auth["work_id"].isin(works["work_id"])])
     stats.update(dup_stats)

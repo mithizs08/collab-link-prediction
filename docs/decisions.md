@@ -74,7 +74,7 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   from works with year < cutoff. Likewise, UTS status in the audit is time-respecting ("had a UTS
   authorship before the cutoff").
 
-## 2026-10-14 — Recommended split cutoffs (PENDING REVIEW, not yet in config)
+## 2026-10-14 — Recommended split cutoffs (superseded: accepted, see below)
 - **Recommendation:** one-year label windows ending in the most recent data:
   - train: cutoff 2023, window 2023 (graph = works 2015–2022)
   - val: cutoff 2024, window 2024
@@ -103,3 +103,45 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   2019–2022) without touching val/test; that is a separate decision.
 - **Open (for review):** the primary prediction population, UTS–UTS vs. all pairs with both
   authors seen (see `docs/data_audit.md`, caveat 2).
+
+## 2026-10-14 — Split cutoffs accepted and written to config
+- **Decision (reviewed by project owner):** one-year windows. Train: graph 2015–2022 → predict
+  2023 (`cutoff: 2023`); validation: graph 2015–2023 → predict 2024 (`cutoff: 2024`); test: graph
+  2015–2024 → predict 2025 (`cutoff: 2025`).
+- **Reason:** as in the recommendation above. Counts after the work-type exclusion are in
+  `report/data_audit/configured_splits.csv` (UTS–UTS positives: 2,244 / 2,216 / 2,533).
+- 2025 indexing lag is listed under Limitations in `docs/data_audit.md`.
+
+## 2026-10-14 — Prediction targets are UTS–UTS pairs only
+- **Decision (project owner):** positives and negatives are restricted to pairs of UTS authors.
+  A UTS author for a split has at least one UTS-affiliated authorship in a work with
+  year < cutoff, i.e. at or before the split's last graph year (2022 / 2023 / 2024). Affiliations
+  from the label window itself are never used: that would select authors on future information.
+  Both authors must also be in the input graph before the cutoff (`require_both_nodes_seen`).
+  The input graph (heuristics, features, message passing) still uses ALL authors and edges with
+  year < cutoff.
+- **Alternatives:** all pairs with both authors seen; pairs with at least one UTS author.
+- **Reason:** the dataset contains every work with a UTS author, so any collaboration between two
+  UTS-affiliated authors is guaranteed to be observed, which makes both positive and negative labels
+  reliable. For pairs involving a non-UTS author, collaborations on non-UTS papers are invisible,
+  so negatives would contain hidden false negatives. All-pairs positive counts stay in the audit
+  for context.
+
+## 2026-10-14 — Drop erratum, peer-review and paratext works
+- **Decision (project owner):** works of these types are removed before deduplication and edge
+  building and counted in the cleaning log (`excluded_type_dropped`, 658: 283 errata, 242
+  paratext, 133 peer reviews). Editorials and letters are kept.
+- **Reason:** these types repeat or annotate other works rather than record a collaboration.
+  Removing them before deduplication also guarantees an erratum is never kept as the canonical copy.
+- **Side effect:** 118 of the previously over-cap works were of these types, so over-cap works
+  fall from 623 to 505.
+
+## 2026-10-14 — Planned sensitivity check (Phase 7): disambiguation
+- **Plan:** rerun the best model and the best heuristic with every author ID flagged in
+  `data/processed/disambiguation_flags.parquet` removed (from the input graph and from the
+  positive/negative pairs), on the same splits and seeds, and report both results side by side.
+- **Reason:** 1,011 (name, UTS) groups map to more than one ID (2,689 IDs), and several top hubs are
+  flagged. Split profiles can turn continuing collaborations into false "new" positives; merged
+  profiles create artificial hubs that favour degree-based methods. The check shows whether
+  conclusions depend on these profiles. The flag is a heuristic (same name, same institution), so
+  removal also drops some correctly identified authors; this will be stated with the result.

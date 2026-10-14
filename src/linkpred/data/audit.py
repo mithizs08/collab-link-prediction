@@ -269,11 +269,32 @@ def _md_table(df: pd.DataFrame, floatfmt: str = "{:.3f}") -> str:
     return "\n".join(lines)
 
 
-def render_markdown(log, t, miss, cands, g_all, g_uts, figs) -> str:
+def configured_splits(cands: pd.DataFrame, splits_cfg: dict) -> pd.DataFrame:
+    """Candidate rows for the splits actually written in the config."""
+    rows = []
+    for name in ("train", "val", "test"):
+        s = splits_cfg.get(name) or {}
+        if s.get("cutoff") is None:
+            continue
+        r = cands[(cands["cutoff"] == s["cutoff"]) & (cands["window_end"] == s["window_end"])]
+        if len(r):
+            rows.append({"split": name, "graph_years": f"<{s['cutoff']}",
+                         "label_window": f"{s['cutoff']}-{s['window_end']}", **r.iloc[0].to_dict()})
+    cols = ["split", "graph_years", "label_window", "graph_nodes", "graph_edges_distinct", "uts_nodes",
+            "pos_uts_uts", "pos_uts_any_both_seen", "pos_both_seen", "new_pairs_in_window"]
+    out = pd.DataFrame(rows, columns=cols)
+    num = cols[3:]
+    out[num] = out[num].astype(int)
+    return out
+
+
+def render_markdown(log, t, miss, cands, g_all, g_uts, figs, conf=None) -> str:
     L = log
     steps = pd.DataFrame([
         ("Raw works in snapshot", L["raw_works"], ""),
         ("Missing publication_year", L["missing_year_dropped"], "dropped"),
+        ("Excluded types (" + ", ".join(f"{k} {v}" for k, v in L.get("excluded_type_counts", {}).items()) + ")",
+         L.get("excluded_type_dropped", 0), "dropped"),
         ("Duplicate OpenAlex IDs", L["duplicate_work_ids"], "dropped"),
         ("Duplicate DOI", L["duplicate_doi"], "dropped (preferred copy kept)"),
         ("Duplicate normalised title + year (shared author, ≥5-word title)", L["duplicate_title_year"], "dropped"),
@@ -316,6 +337,13 @@ def render_markdown(log, t, miss, cands, g_all, g_uts, figs) -> str:
         "",
         "## Graph summary (all years, distinct pairs)",
         _md_table(pd.DataFrame([{"graph": "all authors", **g_all}, {"graph": "UTS–UTS", **g_uts}]), "{:.4g}"),
+        "",
+        "## Configured splits (target: UTS–UTS pairs)",
+        "`pos_uts_uts` are the prediction targets: pairs first co-authoring in the label window, both "
+        "in the graph before the cutoff and both with a UTS authorship before the cutoff. The other "
+        "positive counts are context only.",
+        "",
+        _md_table(conf) if conf is not None and len(conf) else "_No splits configured._",
         "",
         "## Split candidates",
         "Positives = pairs first co-authoring inside the window whose two authors are both already "
@@ -368,9 +396,12 @@ def run(cfg: dict) -> dict:
     types.to_csv(out / "work_types.csv", index=False)
     (out / "graph_summary.json").write_text(json.dumps({"all": g_all, "uts_uts": g_uts}, indent=2) + "\n")
 
+    conf = configured_splits(cands, cfg["splits"])
+    conf.to_csv(out / "configured_splits.csv", index=False)
+
     figs = make_figures(t, deg_all, deg_uts, Path(paths["figures"]))
-    write_markdown(Path("docs/data_audit.md"), render_markdown(log, t, miss, cands, g_all, g_uts, figs))
-    return {"yearly": t, "candidates": cands, "missingness": miss, "graph": {"all": g_all, "uts_uts": g_uts}}
+    write_markdown(Path("docs/data_audit.md"), render_markdown(log, t, miss, cands, g_all, g_uts, figs, conf))
+    return {"yearly": t, "candidates": cands, "configured": conf, "missingness": miss, "graph": {"all": g_all, "uts_uts": g_uts}}
 
 
 def main(cfg: dict) -> None:

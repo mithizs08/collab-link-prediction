@@ -26,24 +26,35 @@ data:
   max_authors_per_work: 25   # works with more authors are kept in works.parquet but produce
                              # no edges: hyper-authored papers create huge cliques that dominate
                              # the graph without reflecting real collaboration ties
+  # Dropped entirely before dedup and edge building (counted in the cleaning log):
+  # these types repeat or annotate other works rather than record a collaboration.
+  # Editorials and letters are kept.
+  exclude_types: [erratum, peer-review, paratext]
 
 # Temporal split. For each period, the observed graph is built ONLY from works
 # with year < *_cutoff; positives are author pairs that co-author for the FIRST
 # time in [cutoff, window_end]. Pairs already linked before the cutoff are not
 # positives (we predict *new* collaborations).
 splits:
+  # Decided 2026-10-14 (docs/decisions.md): one-year windows, latest data.
   train:
-    cutoff: null             # TODO e.g. 2019 -> graph from works < 2019
-    window_end: null         # TODO e.g. 2019
+    cutoff: 2023             # graph = works 2015-2022
+    window_end: 2023         # predict first co-authorships in 2023
   val:
-    cutoff: null             # TODO e.g. 2020
-    window_end: null         # TODO e.g. 2020
+    cutoff: 2024             # graph = works 2015-2023
+    window_end: 2024
   test:
-    cutoff: null             # TODO e.g. 2021
-    window_end: null         # TODO e.g. 2022
+    cutoff: 2025             # graph = works 2015-2024
+    window_end: 2025
   # Only predict between authors present in the observed graph at the cutoff
   # (cold-start authors have no history; handled separately if at all).
   require_both_nodes_seen: true
+  # Positives AND negatives are UTS-UTS pairs only. A UTS author for a split has at
+  # least one UTS-affiliated authorship in a work with year < cutoff (i.e. at or
+  # before the last graph year) -- never in the label window. The input graph
+  # (heuristics, features, message passing) still uses ALL authors and edges
+  # with year < cutoff.
+  target_population: uts_uts
 
 negatives:
   # Negatives per positive, per negative type. Evaluated separately so that

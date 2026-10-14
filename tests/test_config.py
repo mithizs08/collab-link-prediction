@@ -33,3 +33,12 @@ def test_set_seed_is_reproducible():
     set_seed(123)
     b = [random.random() for _ in range(5)]
     assert a == b
+
+
+def test_decided_splits_and_target():
+    cfg = load_config("configs/default.yaml")
+    s = cfg["splits"]
+    assert [(s[p]["cutoff"], s[p]["window_end"]) for p in ("train", "val", "test")] == [
+        (2023, 2023), (2024, 2024), (2025, 2025)]
+    assert s["target_population"] == "uts_uts"
+    assert set(cfg["data"]["exclude_types"]) == {"erratum", "peer-review", "paratext"}
