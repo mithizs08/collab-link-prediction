@@ -1,0 +1,101 @@
+# Default experiment configuration.
+# Values marked TODO are placeholders to be fixed (and logged in docs/decisions.md)
+# once the data has been inspected. Do not change split years after looking at
+# test-period results.
+
+seed: 0                      # global seed for any non-learned randomness (sampling, shuffles)
+seeds: [0, 1, 2, 3, 4]       # every learned model is run once per seed
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  results: results
+  figures: figures
+  report: report
+
+data:
+  source: null               # TODO: e.g. OpenAlex institution snapshot; decide in data phase
+  institution_id: null       # TODO
+  start_year: null           # TODO: first publication year to include
+  end_year: null             # TODO: last complete publication year
+  max_authors_per_work: 25   # works with more authors are dropped: hyper-authored papers
+                             # create huge cliques that dominate the graph without reflecting
+                             # real collaboration ties
+  min_works_per_author: 1    # TODO: revisit after EDA
+
+# Temporal split. For each period, the observed graph is built ONLY from works
+# with year < *_cutoff; positives are author pairs that co-author for the FIRST
+# time in [cutoff, window_end]. Pairs already linked before the cutoff are not
+# positives (we predict *new* collaborations).
+splits:
+  train:
+    cutoff: null             # TODO e.g. 2019 -> graph from works < 2019
+    window_end: null         # TODO e.g. 2019
+  val:
+    cutoff: null             # TODO e.g. 2020
+    window_end: null         # TODO e.g. 2020
+  test:
+    cutoff: null             # TODO e.g. 2021
+    window_end: null         # TODO e.g. 2022
+  # Only predict between authors present in the observed graph at the cutoff
+  # (cold-start authors have no history; handled separately if at all).
+  require_both_nodes_seen: true
+
+negatives:
+  # Negatives per positive, per negative type. Evaluated separately so that
+  # "easy" random negatives cannot inflate scores.
+  ratios:
+    random: 1                # uniform non-edges among seen nodes
+    hard_2hop: 1             # non-edges at distance exactly 2 (share >=1 co-author)
+    hard_degree: 1           # TODO: degree-matched negatives (optional)
+  eval_ratio: 100            # TODO: negatives per positive at evaluation (ranking metrics)
+
+metrics: [roc_auc, average_precision, hits@20, hits@50, mrr]
+
+models:
+  heuristics:
+    methods: [common_neighbors, jaccard, adamic_adar, resource_allocation, preferential_attachment]
+
+  lightgbm:
+    n_estimators: 500
+    learning_rate: 0.05
+    num_leaves: 31
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+    early_stopping_rounds: 50   # on the validation split only, never test
+
+  node2vec:
+    embedding_dim: 128
+    walk_length: 20
+    context_size: 10
+    walks_per_node: 10
+    num_negative_samples: 1
+    p: 1.0
+    q: 1.0
+    epochs: 5
+    lr: 0.01
+    batch_size: 128
+    classifier: logistic_regression   # on Hadamard product of endpoint embeddings
+
+  graphsage:
+    hidden_channels: 128
+    num_layers: 2
+    dropout: 0.3
+    lr: 0.005
+    weight_decay: 0.0
+    epochs: 200
+    patience: 20              # early stopping on validation metric
+    batch_size: 1024
+
+  gat:
+    hidden_channels: 64
+    heads: 4
+    num_layers: 2
+    dropout: 0.3
+    lr: 0.005
+    weight_decay: 0.0005
+    epochs: 200
+    patience: 20
+    batch_size: 1024

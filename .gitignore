@@ -1,0 +1,49 @@
+# Data: never committed. Keep the directory skeleton via .gitkeep.
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# Large / regenerable artifacts
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.parquet
+*.feather
+*.h5
+*.emb
+models/
+checkpoints/
+lightning_logs/
+runs/
+wandb/
+mlruns/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+env/
+.env
+
+# Notebooks / editors / OS
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,28 @@
+# Python 3.11. Pinned to a set known to install together (torch 2.4 / PyG 2.6 era).
+# numpy is held at 1.26 because shap, lightgbm and parts of the PyG ecosystem
+# were still catching up with numpy 2.x ABI changes when these pins were chosen.
+
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.13.1
+scikit-learn==1.5.2
+lightgbm==4.5.0
+networkx==3.3
+shap==0.46.0
+matplotlib==3.9.2
+seaborn==0.13.2
+pyyaml==6.0.2
+tqdm==4.66.5
+pytest==8.3.3
+
+torch==2.4.1
+torch_geometric==2.6.1
+
+# torch_geometric.nn.Node2Vec needs a random-walk backend. We use torch-cluster
+# (verified: 1.6.3 on macOS arm64 / conda Python 3.11). It is a compiled extension
+# that must match the torch build, so install from the PyG wheel index:
+#   pip install torch-cluster -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+# Do NOT install pyg-lib under conda on macOS: its wheel links against the
+# python.org framework Python, fails to load, and warns on every PyG import.
+#
+# macOS only: LightGBM needs the OpenMP runtime: `conda install llvm-openmp`.
