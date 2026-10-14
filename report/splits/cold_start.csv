@@ -1,0 +1,4 @@
+split,positives,pos_cold_start_any,pos_cold_start_both,pos_with_isolated_endpoint,share_cold_start_any
+train,2257,673,57,27,0.2981834293309703
+val,2225,794,66,27,0.3568539325842697
+test,2533,970,106,12,0.3829451243584682

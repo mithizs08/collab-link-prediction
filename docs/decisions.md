@@ -145,3 +145,33 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   profiles create artificial hubs that favour degree-based methods. The check shows whether
   conclusions depend on these profiles. The flag is a heuristic (same name, same institution), so
   removal also drops some correctly identified authors; this will be stated with the result.
+
+## 2026-10-14 — Cutoff interpretation approved
+- **Decision (project owner):** a split's input graph and all node attributes, including UTS
+  status, use only works published before that split's cutoff year.
+
+## 2026-10-14 — Split construction details (Phase 2)
+- **Isolated authors are nodes.** The input graph contains every author with a work before the
+  cutoff, including authors with no co-author yet (solo or only hyper-authored works), as
+  specified. 12–27 positives per split have such an endpoint; they count as disconnected.
+  *Alternative:* only authors with ≥ 1 edge (the Phase 1 audit's "seen"). Effect: 2,257 / 2,225 /
+  2,533 positives instead of the audit's 2,244 / 2,216 / 2,533.
+- **"First co-authorship" counts works of any size.** Edges come from ≤25-author works only, but a
+  pair whose first joint work was a hyper-authored paper before the cutoff is *not* a positive
+  (14–21 pairs per split), and any pair with a joint hyper-authored work in the prediction year is
+  excluded from negatives. *Reason:* otherwise a collaboration that already happened would be
+  labelled "new", or a real collaboration labelled "none".
+- **Input-graph edge weight** = number of distinct joint ≤25-author works before the cutoff.
+- **Hard negatives are uniform over the full distance-2 pool** (480k–782k eligible pairs, enumerated
+  exactly via a sparse product), not weighted by common neighbours. *Alternative:* sampling via
+  random 2-step walks, which over-represents hubs.
+- **Ranking head** is the positive's endpoint with the smaller author ID: fixed and unrelated to
+  any attribute, so effectively random. Candidates exclude u's input-graph neighbours and anyone
+  with a joint work with u in the prediction year (which includes all of u's positive partners).
+- **Seeding:** each split uses `SeedSequence([cfg.seed, split_index]).spawn(3)`, one independent
+  stream for random negatives, hard negatives and ranking candidates, so changing one sampler never
+  changes the others. Negatives are a fixed evaluation set built once from `seed`; the five model
+  seeds affect training only. This keeps rule 2 (all randomness from the config seed).
+- **Leakage tests were mutation-checked:** deliberately reintroducing each leak (future edges and
+  nodes, label-year UTS status, window collaborators as negatives, unfiltered hard negatives,
+  connected positives, unseeded sampling) in a scratch copy made `tests/test_leakage.py` fail.

@@ -24,6 +24,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
 BEGIN, END = "<!-- BEGIN GENERATED -->", "<!-- END GENERATED -->"
+YEAR_COLS = {"year", "cutoff", "window_end"}
 
 # Reference palette (dataviz skill), light mode.
 SURFACE, INK, INK_2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
@@ -262,7 +263,8 @@ def _md_table(df: pd.DataFrame, floatfmt: str = "{:.3f}") -> str:
             if isinstance(v, (float, np.floating)) and not float(v).is_integer():
                 cells.append(floatfmt.format(v))
             elif isinstance(v, (int, np.integer, float, np.floating)):
-                cells.append(f"{int(v):,}")
+                # Years are labels, not quantities: no thousands separator.
+                cells.append(str(int(v)) if c in YEAR_COLS else f"{int(v):,}")
             else:
                 cells.append(str(v))
         lines.append("| " + " | ".join(cells) + " |")
@@ -360,14 +362,14 @@ def render_markdown(log, t, miss, cands, g_all, g_uts, figs, conf=None) -> str:
     return "\n".join(out)
 
 
-def write_markdown(path: Path, generated: str) -> None:
+def write_markdown(path: Path, generated: str, title: str = "Data audit") -> None:
     if path.exists():
         text = path.read_text()
         if BEGIN in text and END in text:
             text = re.sub(re.escape(BEGIN) + ".*?" + re.escape(END), lambda _: generated, text, flags=re.S)
             path.write_text(text)
             return
-    path.write_text("# Data audit\n\n" + generated + "\n")
+    path.write_text(f"# {title}\n\n" + generated + "\n")
 
 
 # ---------------------------------------------------------------- pipeline

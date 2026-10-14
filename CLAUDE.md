@@ -9,7 +9,7 @@ predict which author pairs co-author for the first time in the following window.
 
 ## Layout
 - `src/linkpred/` — package (`config.py`: config + `set_seed`; `results.py`: the only results writer; `cli.py`: pipeline stages)
-- `src/linkpred/data/` — `build.py` (raw OpenAlex → `data/processed/*.parquet`), `audit.py` (→ `report/data_audit/`, `figures/audit_*`, `docs/data_audit.md`), `fetch_openalex.py` (optional re-pull)
+- `src/linkpred/data/` — `build.py` (raw OpenAlex → `data/processed/*.parquet`), `audit.py` (→ `report/data_audit/`, `figures/audit_*`, `docs/data_audit.md`), `fetch_openalex.py` (optional re-pull), `splits.py` (→ `data/processed/splits/<split>/`, format in `docs/splits.md`; load with `splits.load_split`)
 - `data/processed/authors.parquet` aggregates all years: descriptive only, never a feature (rule 1)
 - `configs/default.yaml` — all paths, split years, sampling ratios, seeds, hyperparameters
 - `data/{raw,interim,processed}` — git-ignored

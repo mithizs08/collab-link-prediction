@@ -13,6 +13,7 @@ paths:
   results: results
   figures: figures
   report: report
+  splits: data/processed/splits
 
 data:
   # Raw input: existing OpenAlex snapshot from the earlier UTS project (read-only).
@@ -55,15 +56,17 @@ splits:
   # (heuristics, features, message passing) still uses ALL authors and edges
   # with year < cutoff.
   target_population: uts_uts
+  # Cold-start diagnostic only (not a filter): fewer than 3 works before the cutoff.
+  cold_start_max_works: 2
 
 negatives:
-  # Negatives per positive, per negative type. Evaluated separately so that
-  # "easy" random negatives cannot inflate scores.
+  # Negatives per positive, per type, saved separately for every split. Both types are
+  # UTS-UTS pairs of input-graph authors, unconnected before the cutoff and with no joint
+  # work in the label window. Which mix to TRAIN on is decided in Phase 4 on validation.
   ratios:
-    random: 1                # uniform non-edges among seen nodes
-    hard_2hop: 1             # non-edges at distance exactly 2 (share >=1 co-author)
-    hard_degree: 1           # TODO: degree-matched negatives (optional)
-  eval_ratio: 100            # TODO: negatives per positive at evaluation (ranking metrics)
+    random: 1                # uniform unconnected UTS-UTS pairs
+    hard_2hop: 1             # unconnected UTS-UTS pairs at distance exactly 2 in the full graph
+  ranking_candidates: 100    # per positive (u, v): 100 corrupted tails (u, w) for Hits@K / MRR
 
 metrics: [roc_auc, average_precision, hits@20, hits@50, mrr]
 

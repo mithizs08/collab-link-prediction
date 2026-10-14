@@ -1,0 +1,4 @@
+split,window_uts_pairs_with_edge,excluded_connected_in_graph,excluded_prior_hyper_work_only,positives
+train,7304,5032,15,2257
+val,7731,5485,21,2225
+test,8207,5660,14,2533

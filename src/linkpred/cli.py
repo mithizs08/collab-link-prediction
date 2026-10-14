@@ -20,8 +20,14 @@ def _data(cfg: dict) -> None:
     audit.main(cfg)
 
 
+def _splits(cfg: dict) -> None:
+    from linkpred.data import splits
+
+    splits.main(cfg)
+
+
 # stage name -> callable(cfg). Filled in as phases are built.
-IMPLEMENTED: dict = {"data": _data}
+IMPLEMENTED: dict = {"data": _data, "splits": _splits}
 
 
 def main(argv: list[str] | None = None) -> int:
