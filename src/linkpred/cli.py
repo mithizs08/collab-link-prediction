@@ -26,8 +26,19 @@ def _splits(cfg: dict) -> None:
     splits.main(cfg)
 
 
+def _features(cfg: dict) -> None:
+    import logging
+
+    from linkpred.features.build import build_features
+    from linkpred.features.embed import build_embeddings
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
+    build_embeddings(cfg)
+    build_features(cfg)
+
+
 # stage name -> callable(cfg). Filled in as phases are built.
-IMPLEMENTED: dict = {"data": _data, "splits": _splits}
+IMPLEMENTED: dict = {"data": _data, "splits": _splits, "features": _features}
 
 
 def main(argv: list[str] | None = None) -> int:

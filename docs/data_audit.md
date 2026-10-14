@@ -169,3 +169,9 @@ Positives = pairs first co-authoring inside the window whose two authors are bot
 - **Authorship truncation.** The OpenAlex list API caps authorships at 100 (80 works); this only
   affects works already excluded from edges by the 25-author cap.
 - **Missing DOIs** (3.3% of works) can only be deduplicated by title + year.
+- **Pretrained text encoder.** Text features use all-MiniLM-L6-v2, pretrained on corpora that may
+  include text published after the split cutoffs. Each work's embedding depends only on its own text,
+  so no other work's information leaks, but the encoder's general knowledge is not time-restricted.
+- **Embedding coverage.** Almost every author has at least one work with a title (99.99%), but only
+  78–79% of input-graph authors (86% of UTS authors) have a work with an abstract; the rest are
+  represented by titles only (`report/features/coverage.csv`).

@@ -1,0 +1,7 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+rw_adamic_adar_half_life=0.5,val,hard,all,hard,0,roc_auc,0.8314834285355596,,
+rw_adamic_adar_half_life=1,val,hard,all,hard,0,roc_auc,0.8418520494633105,,
+rw_adamic_adar_half_life=2,val,hard,all,hard,0,roc_auc,0.8493307074257737,,
+rw_adamic_adar_half_life=3,val,hard,all,hard,0,roc_auc,0.8473071370284351,,
+rw_adamic_adar_half_life=5,val,hard,all,hard,0,roc_auc,0.8376249136902894,,
+rw_adamic_adar_half_life=10,val,hard,all,hard,0,roc_auc,0.8170712761283033,,

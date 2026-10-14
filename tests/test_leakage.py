@@ -149,8 +149,9 @@ def _ordered(rk: pd.DataFrame) -> pd.DataFrame:
 
 
 def _all_negatives(sp_) -> pd.DataFrame:
+    pools = [sp_[k][["author_u", "author_v"]] for k in ("train_pool_random", "train_pool_hard") if k in sp_]
     return pd.concat([sp_["neg_random"][["author_u", "author_v"]], sp_["neg_hard"][["author_u", "author_v"]],
-                      _ordered(sp_["ranking"]), _ordered(sp_["ranking_hard"])])
+                      _ordered(sp_["ranking"]), _ordered(sp_["ranking_hard"]), *pools])
 
 
 def _neighbours(sp_) -> dict:
@@ -205,7 +206,9 @@ def test_all_pairs_are_uts_authors_in_input_graph(bundle, name):
     uts = _uts_before(t, cutoff)
     in_graph = _authors_before(t, cutoff)
     allowed = uts & in_graph
-    for key in ("positives", "neg_random", "neg_hard"):
+    for key in ("positives", "neg_random", "neg_hard", "train_pool_random", "train_pool_hard"):
+        if key not in sp_:
+            continue
         ids = set(sp_[key]["author_u"]) | set(sp_[key]["author_v"])
         assert ids <= allowed, f"{key} uses non-UTS or out-of-graph authors"
     for key in ("ranking", "ranking_hard"):
@@ -229,7 +232,8 @@ def test_negatives_unconnected_and_not_window_collaborations(bundle, name):
 def test_hard_negatives_at_distance_exactly_two(bundle, name):
     sp_ = bundle["splits"][name]
     nbrs = _neighbours(sp_)
-    for u, v in zip(sp_["neg_hard"]["author_u"], sp_["neg_hard"]["author_v"]):
+    hard = pd.concat([sp_[k] for k in ("neg_hard", "train_pool_hard") if k in sp_])
+    for u, v in zip(hard["author_u"], hard["author_v"]):
         nu, nv = nbrs.get(u, set()), nbrs.get(v, set())
         assert v not in nu                      # not distance 1
         assert nu & nv                          # a common neighbour -> distance exactly 2
@@ -300,7 +304,8 @@ def test_rank_hard_candidates(bundle, name):
 def _run_train(cfg, t, seed):
     s, neg = cfg["splits"]["train"], cfg["negatives"]
     return make_split(t, all_uts_coauthor_pairs(t["auth"]), s["cutoff"], s["window_end"], seed, 0,
-                      neg["ratios"], neg["ranking_candidates"], cfg["splits"]["cold_start_max_works"])
+                      neg["ratios"], neg["ranking_candidates"], cfg["splits"]["cold_start_max_works"],
+                      pool_ratio=neg["train_pool_ratio"])
 
 
 def test_same_seed_reproduces_synthetic(synthetic):
@@ -318,7 +323,7 @@ def test_saved_splits_reproduce_from_config_seed(bundle):
     cfg, t = bundle["cfg"], bundle["tables"]
     fresh = _run_train(cfg, t, cfg["seed"])
     saved = bundle["splits"]["train"]
-    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard"):
+    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard", "train_pool_random", "train_pool_hard"):
         pd.testing.assert_frame_equal(fresh[key].reset_index(drop=True), saved[key].reset_index(drop=True),
                                       check_dtype=False)
 
@@ -335,6 +340,9 @@ def test_synthetic_fixture_covers_edge_cases(synthetic):
     test_uts = set(synthetic["splits"]["test"]["nodes"].query("is_uts")["author_id"])
     assert switchers & test_uts
     assert (t["works"]["n_authors"] > 25).sum() == 2
+    tr = synthetic["splits"]["train"]                # pools exist (train only) and are non-trivial
+    assert len(tr["train_pool_hard"]) > 0 and len(tr["train_pool_random"]) > 0
+    assert "train_pool_hard" not in synthetic["splits"]["val"]
     for name in SPLITS:                       # rank_hard tests must not pass vacuously
         st = synthetic["splits"][name]["stats"]
         assert st["rank_hard_queries"] > 0 and st["rank_hard_rows"] > 0

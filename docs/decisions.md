@@ -243,3 +243,97 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   random negatives, which are almost never at distance 2, while positives mostly are). The
   training negative mix (random / hard / both) will be chosen on validation under the `hard`
   protocol, not fixed in advance.
+
+## 2026-10-14 — Phase 4 reporting change
+- **Decision (project owner):** rank_hard reports Hits@10/20/50 and MRR; Hits@100 is dropped
+  (near-trivial with ≤ 101 items). rank_random keeps Hits@20/50/100. rank_hard also gains
+  `cold_start` / `established` strata (query_auc only, comparable across candidate counts).
+  Baselines were re-run with this reporting; earlier headline values are unchanged.
+
+## 2026-10-14 — Pair features (Phase 4)
+- **Decision:** three families computed per split from works published before its cutoff only
+  (`linkpred.features.pair_features`); all symmetric in (u, v) (per-author values enter as min/max).
+  - *Structural:* CN, Jaccard, AA, RA, PA, truncated Katz (beta 0.005 from Phase 3), degree min/max,
+    distance capped at 5 (computed with a 5-hop limited search) + `disconnected` (different connected
+    component), same Louvain community (networkx, weighted by joint works, seed = config seed),
+    shared institutions (from pre-cutoff authorships; always ≥ 1 for UTS–UTS pairs because UTS
+    itself counts), common neighbours split into UTS / non-UTS.
+  - *Temporal:* career age (years since first work in the data; left-censored at 2015), works in
+    the two years before the cutoff, years since last work; recency-weighted CN / AA with weight
+    0.5^((c − last_uw)/h)·0.5^((c − last_vw)/h); years since the most recent shared collaboration,
+    defined as c − max_w min(last_uw, last_vw) (the most recent time both ties to a shared
+    co-author were active), 11 when there is none.
+  - *Text:* author vector = mean of unit embeddings (all-MiniLM-L6-v2, title + abstract or title
+    only) of the author's pre-cutoff works; features = cosine of author vectors, similarity of each
+    author to the mean vector of the *other* author's co-authors (min/max), both-have-text flag.
+    Interpretation note: "similarity to the other's shared co-authors" was implemented as the
+    other author's full co-author neighbourhood, because common neighbours do not exist for pairs
+    at distance ≥ 3.
+- **Half-life h** = 2 years, chosen on validation from {0.5, 1, 2, 3, 5, 10} by the `hard` ROC-AUC of
+  recency-weighted AA alone (`results/half_life_selection.csv`).
+- **Leakage guard:** `FeatureContext` receives the full tables and applies the only time filter
+  itself; `tests/test_features.py` recomputes every feature after deleting all works in or after
+  the cutoff (and scrambling future works' embeddings) and requires identical output. Three
+  injected leaks (label-year authorships, unfiltered recent-work counts, future works in author
+  text vectors) each made it fail.
+
+## 2026-10-14 — Features considered and rejected for leakage
+- `authors.parquet` aggregates (first/last year, n_works, primary institution): computed over all
+  years, so they contain the future. Replaced by per-split pre-cutoff recomputation.
+- OpenAlex `cited_by_count`, `counts_by_year`: measured at snapshot time (2026), after every cutoff.
+- OpenAlex `last_known_institution` / current affiliation: describes the author's state at snapshot time.
+- OpenAlex topics / concepts per work: assigned by OpenAlex classifiers trained recently; not used
+  (the sentence embedding carries the same caveat, documented as a limitation, but is computed by us
+  from the work's own text only).
+- Degrees, communities, distances or embeddings computed on the full 2015–2025 graph: would encode
+  the label-window edges. All computed on the split's input graph.
+- Normalisation statistics (StandardScaler) fitted on validation or test pairs: fitted on training
+  pairs only, inside the model pipeline.
+- Activity inside the label window (e.g. "both authors published in the prediction year", window
+  co-authors, triadic closure within the window): direct label leakage.
+- Author UTS status from any work in or after the cutoff: already excluded by the split definition.
+- Any hyperparameter (Katz beta, half-life, LightGBM settings, negative mix) chosen on test.
+
+## 2026-10-14 — Training negative mix and model selection (Phase 4)
+- **Grid:** hard fraction {0, 0.5, 1} × ratio {1:1, 1:3}, from train-split pools of 3 × positives per
+  type (new seed streams 5 and 6; evaluation pairs unchanged).
+- **Rule, fixed before running:** highest validation `hard` ROC-AUC among mixes whose validation
+  rank_random MRR is ≥ 90% of the best mix's; ties go to fewer hard negatives, then the lower ratio.
+  *Reason:* a hard-heavy mix teaches the model that sharing a co-author signals a negative, which
+  can still score well on `hard` while collapsing on random candidates.
+- **LightGBM:** early stopping on validation `hard` AP; search over num_leaves × learning_rate ×
+  min_child_samples by validation `hard` ROC-AUC. The grid was widened once (adding 3 leaves and
+  min_child 300) after a dry run picked the most regularised corner of the original grid. Decided
+  on validation only, before any test evaluation.
+- **Distance-2 specialist:** LightGBM with the same settings trained on distance-2 positives vs hard
+  negatives only (ratio as the chosen general mix), compared with the general model on `hard` and
+  `rank_hard`.
+- **Logistic regression:** standardised features with log1p on heavy-tailed counts, C = 1, no search.
+  lbfgs is deterministic, so its five seeds give identical results (sd 0).
+- **Paired tests:** each final model and seed vs the validation-best heuristic per protocol, plus
+  Adamic-Adar on `hard` and `rank_hard`; summarised as the number of seeds with p < 0.05.
+
+## 2026-10-14 — Finding: much of the `hard` gain is author activity
+- **Observation:** a positive requires both authors to publish in the prediction year; a hard
+  negative does not, and only 18% of test hard negatives (467 / 2,533; 424 / 2,225 on validation)
+  have both authors publishing anything in that year. Activity features (recent works, years since
+  last work) therefore separate classes partly by predicting *who keeps publishing*.
+- **Diagnostic** (`scripts/activity_diagnostic.py`, `results/activity_diagnostic*.csv`): `hard`
+  re-scored against only the hard negatives whose two authors are both active in the prediction
+  year. LightGBM's gain over Adamic-Adar shrinks from +0.125 to +0.042 ROC-AUC on test (still
+  significant in 5/5 seeds; +0.021 on validation, 4/5). The temporal-only model's gain vanishes
+  (−0.002, p ≈ 0.8), and the structural-only LightGBM becomes significantly *worse* than
+  Adamic-Adar (−0.025).
+- **Status:** the subset uses label-window information to choose evaluation pairs (never as a
+  feature), so it is an analysis, not a protocol. The headline `hard` numbers stand as defined,
+  but must always be reported together with this diagnostic. Whether to make an activity-matched
+  protocol standard for Phase 5+ is an open question for the project owner.
+- **Interpretation:** activity is legitimately known at the cutoff and is useful for forecasting,
+  but "who will still be publishing" is a different and easier question than "which pairs will
+  collaborate". The defensible pair-level gain of the feature models is about +0.02 to +0.04 AUC.
+
+## 2026-10-14 — Note on feature importance
+- LightGBM gain importance is measured on the training data, where negatives are random and
+  structure (Katz, distance) separates classes easily, so it overstates structural features
+  relative to their value on the `hard` protocol. The ablation, not gain importance, is the
+  evidence for which family matters.

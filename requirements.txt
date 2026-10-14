@@ -20,6 +20,8 @@ requests==2.34.2         # OpenAlex fetcher
 nbformat==5.10.4
 nbconvert==7.16.4
 ipykernel==6.29.5
+sentence-transformers==3.1.1  # text features (all-MiniLM-L6-v2, downloaded on first use)
+transformers==4.44.2
 
 torch==2.4.1
 torch_geometric==2.6.1

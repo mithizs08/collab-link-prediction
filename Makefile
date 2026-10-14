@@ -17,11 +17,12 @@ splits:      ## build leak-free temporal train/val/test edges + negatives
 baselines:   ## graph heuristics + Katz under all evaluation protocols -> results/baselines.*
 	PYTHONPATH=src $(PYTHON) scripts/run_baselines.py --config $(CONFIG)
 
-features:    ## pair features for LightGBM, computed per-split from pre-cutoff graph only
+features:    ## work embeddings (cached) + pair features per split, pre-cutoff only
 	$(RUN) features
 
-train:       ## LightGBM, node2vec, GraphSAGE, GAT over all configured seeds
-	$(RUN) train
+train:       ## feature models (LR, LightGBM): mix grid, search, 5 seeds, paired tests, ablation
+	PYTHONPATH=src $(PYTHON) scripts/run_feature_models.py --config $(CONFIG)
+	PYTHONPATH=src $(PYTHON) scripts/activity_diagnostic.py
 
 evaluate:    ## score models on val/test, write results/*.csv
 	$(RUN) evaluate

@@ -35,6 +35,8 @@ Output format, data/processed/splits/<split>/:
   neg_hard.parquet     same columns + n_common (common neighbours in the input graph)
   ranking.parquet      query_id (row of positives), head_idx, head, cand_idx, cand
   ranking_hard.parquet same columns; distance-2 positives only, <= K candidates at distance 2 from head
+  train_pool_random.parquet, train_pool_hard.parquet   (train split only) pool_ratio x positives
+                       training negatives of each type, in random order (prefix = uniform sample)
   meta.json            counts, distance distribution, cold-start stats, config used
 Node indices are per split (author_id is the stable key across splits).
 """
@@ -58,7 +60,8 @@ PAIR_COLS = ["author_u", "author_v", "u_idx", "v_idx"]
 
 # ---------------------------------------------------------------- loading
 
-def load_tables(processed: Path) -> dict[str, pd.DataFrame]:
+def load_tables(processed: Path | str) -> dict[str, pd.DataFrame]:
+    processed = Path(processed)
     works = pd.read_parquet(processed / "works.parquet", columns=["work_id", "year", "n_authors"])
     auth = pd.read_parquet(processed / "authorships.parquet", columns=["work_id", "author_id", "is_uts"])
     auth = auth.merge(works[["work_id", "year"]], on="work_id", validate="many_to_one")
@@ -119,8 +122,10 @@ def _key(a: int, b: int, n: int) -> int:
     return (a * n + b) if a < b else (b * n + a)
 
 
-def _pairs_frame(keys: np.ndarray, n: int, nodes: pd.DataFrame) -> pd.DataFrame:
-    keys = np.sort(np.asarray(keys, dtype=np.int64))
+def _pairs_frame(keys: np.ndarray, n: int, nodes: pd.DataFrame, sort: bool = True) -> pd.DataFrame:
+    keys = np.asarray(keys, dtype=np.int64)
+    if sort:
+        keys = np.sort(keys)
     u, v = keys // n, keys % n
     ids = nodes["author_id"].values
     return pd.DataFrame({"author_u": ids[u], "author_v": ids[v], "u_idx": u, "v_idx": v})
@@ -179,7 +184,7 @@ def distance_summary(d: np.ndarray) -> dict:
 # ---------------------------------------------------------------- one split
 
 def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, seed: int, split_no: int,
-               neg_ratio: dict, n_rank: int, cold_max_works: int) -> dict:
+               neg_ratio: dict, n_rank: int, cold_max_works: int, pool_ratio: int = 0) -> dict:
     nodes, g, A = build_input_graph(t, cutoff)
     n = len(nodes)
     idx = pd.Series(nodes["node_idx"].values, index=nodes["author_id"])
@@ -209,9 +214,9 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     positives = _pairs_frame(pos_keys, n, nodes)
 
     # Independent, reproducible streams.
-    # spawn(4)[:3] == spawn(3), so adding the rank_hard stream left earlier outputs unchanged.
-    r_rand, r_hard, r_rank, r_rank_hard = (
-        np.random.default_rng(s) for s in np.random.SeedSequence([seed, split_no]).spawn(4))
+    # spawn(k)[:j] == spawn(j): adding streams (rank_hard, training pools) leaves earlier outputs unchanged.
+    r_rand, r_hard, r_rank, r_rank_hard, r_pool_rand, r_pool_hard = (
+        np.random.default_rng(s) for s in np.random.SeedSequence([seed, split_no]).spawn(6))
     forbidden = connected | collab_window
 
     k_rand = int(round(neg_ratio.get("random", 1) * len(positives)))
@@ -236,6 +241,17 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     pick = np.sort(r_hard.choice(len(cand), size=k_hard, replace=False))
     neg_hard = _pairs_frame(cand[pick], n, nodes)
     neg_hard["n_common"] = n_common[pick]
+
+    # Training-negative pools (train split only): pool_ratio x positives of each type, same
+    # constraints as the evaluation negatives. Rows are in random order, so any prefix is a
+    # uniform sample -- training mixes take prefixes. May overlap the 1:1 sets above.
+    train_pools = {}
+    if pool_ratio:
+        k = pool_ratio * len(positives)
+        pr = _sample_unconnected(r_pool_rand, uts_pool, k, forbidden, n)   # sampling order is random
+        train_pools["train_pool_random"] = _pairs_frame(pr, n, nodes, sort=False)
+        ph = r_pool_hard.choice(len(cand), size=min(k, len(cand)), replace=False)  # random order
+        train_pools["train_pool_hard"] = _pairs_frame(cand[ph], n, nodes, sort=False)
 
     # Ranking candidates.
     rows = []
@@ -278,17 +294,17 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     uniq = np.unique(heads)
     H2 = (Ab[uniq] @ Ab).tocsr()
     H2.sort_indices()
-    pools = {}
+    head_pools = {}
     for i, h in enumerate(uniq):
         cols = H2.indices[H2.indptr[i]:H2.indptr[i + 1]]
         cols = cols[is_uts_node[cols] & (cols != h)]
         keys = _keys(np.full(len(cols), h), cols, n)
         pos_ = np.searchsorted(forbidden_arr, keys)
         hit = (pos_ < len(forbidden_arr)) & (forbidden_arr[np.minimum(pos_, len(forbidden_arr) - 1)] == keys)
-        pools[int(h)] = cols[~hit]
+        head_pools[int(h)] = cols[~hit]
     rows_h, n_cands = [], []
     for q, h in zip(d2_q, heads):
-        pool = pools[int(h)]
+        pool = head_pools[int(h)]
         k = min(n_rank, len(pool))
         pick = r_rank_hard.choice(pool, size=k, replace=False) if k else np.empty(0, dtype=np.int64)
         n_cands.append(k)
@@ -317,7 +333,7 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     )
     return {"nodes": nodes, "graph_edges": g, "A": A, "positives": positives,
             "neg_random": neg_random, "neg_hard": neg_hard, "ranking": rk[["query_id", "head_idx", "head", "cand_idx", "cand"]],
-            "ranking_hard": rkh[["query_id", "head_idx", "head", "cand_idx", "cand"]], "stats": stats}
+            "ranking_hard": rkh[["query_id", "head_idx", "head", "cand_idx", "cand"]], "stats": stats, **train_pools}
 
 
 # ---------------------------------------------------------------- pipeline
@@ -332,15 +348,18 @@ def build_splits(cfg: dict, write: bool = True) -> dict[str, dict]:
     for split_no, name in enumerate(SPLITS):
         s = cfg["splits"][name]
         res = make_split(t, uts_pairs, s["cutoff"], s["window_end"], cfg["seed"], split_no,
-                         neg["ratios"], neg["ranking_candidates"], cfg["splits"]["cold_start_max_works"])
+                         neg["ratios"], neg["ranking_candidates"], cfg["splits"]["cold_start_max_works"],
+                         pool_ratio=neg["train_pool_ratio"] if name == "train" else 0)
         res["stats"]["seed"] = cfg["seed"]
         results[name] = res
         log.info("%s: %s", name, {k: v for k, v in res["stats"].items() if k != "distance"})
         if write:
             d = out_root / name
             d.mkdir(parents=True, exist_ok=True)
-            for key in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking", "ranking_hard"):
-                res[key].to_parquet(d / f"{key}.parquet", index=False)
+            for key in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking", "ranking_hard",
+                        "train_pool_random", "train_pool_hard"):
+                if key in res:
+                    res[key].to_parquet(d / f"{key}.parquet", index=False)
             sp.save_npz(d / "adjacency.npz", res["A"])
             (d / "meta.json").write_text(json.dumps(res["stats"], indent=2) + "\n")
     return results
@@ -349,7 +368,8 @@ def build_splits(cfg: dict, write: bool = True) -> dict[str, dict]:
 def load_split(root: Path, name: str) -> dict:
     d = Path(root) / name
     out = {k: pd.read_parquet(d / f"{k}.parquet")
-           for k in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking", "ranking_hard")}
+           for k in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking", "ranking_hard",
+                     "train_pool_random", "train_pool_hard") if (d / f"{k}.parquet").exists()}
     out["A"] = sp.load_npz(d / "adjacency.npz").tocsr()
     out["stats"] = json.loads((d / "meta.json").read_text())
     return out

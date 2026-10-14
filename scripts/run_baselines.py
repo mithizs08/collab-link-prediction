@@ -84,11 +84,12 @@ def write_report(cfg, models: list[str], beta: float) -> None:
     report.protocol_figure(df, "val", models, fig_dir / "baselines_protocols_val.png")
     report.breakdown_figure(df, "test", models, fig_dir / "baselines_random_breakdown_test.png")
 
-    ranks = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks"]] + ["mrr"]
+    ranks = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_random"]] + ["mrr"]
+    ranks_h = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_hard"]] + ["mrr"]
     sections = [
         ("hard", "all", ["roc_auc", "average_precision"]),
-        ("rank_hard", "full_candidates", ranks + ["query_auc"]),
-        ("rank_hard", "partial_candidates", ranks + ["query_auc"]),
+        ("rank_hard", "full_candidates", ranks_h + ["query_auc"]),
+        ("rank_hard", "partial_candidates", ranks_h + ["query_auc"]),
         ("rank_hard", "all", ["query_auc"]),
         ("rank_random", "all", ranks + ["query_auc"]),
         ("random", "all", ["roc_auc", "average_precision"]),

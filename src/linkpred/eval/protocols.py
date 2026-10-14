@@ -30,7 +30,8 @@ from linkpred.eval.metrics import average_precision, per_query_metrics, rank_cou
 ScoreFn = Callable[[dict, np.ndarray, np.ndarray], np.ndarray]
 PROTOCOL_ORDER = ("hard", "rank_random", "rank_hard", "random", "diagnostic_all_vs_hard")
 SPLIT_INDEX = {"train": 0, "val": 1, "test": 2}
-RANK_KS = (20, 50, 100)
+RANK_KS = (20, 50, 100)          # rank_random
+RANK_KS_HARD = (10, 20, 50)      # rank_hard: Hits@100 is near-trivial with <= 101 items (Phase 3)
 
 
 class PairScores:
@@ -44,11 +45,17 @@ class PairScores:
         "ranking_hard": ("ranking_hard", "head_idx", "cand_idx"),
     }
 
-    def __init__(self, score_fn: ScoreFn, split: dict):
-        self.score_fn, self.split, self._cache = score_fn, split, {}
+    def __init__(self, score_fn: ScoreFn | None, split: dict, precomputed: dict | None = None):
+        self.score_fn, self.split, self._cache = score_fn, split, dict(precomputed or {})
+        for name, sc in self._cache.items():
+            table = self.SOURCES[name][0]
+            if len(sc) != len(split[table]) or not np.isfinite(sc).all():
+                raise ValueError(f"precomputed scores for {name} do not match the split")
 
     def __call__(self, name: str) -> np.ndarray:
         if name not in self._cache:
+            if self.score_fn is None:
+                raise KeyError(f"no scores for {name}")
             table, u, v = self.SOURCES[name]
             df = self.split[table]
             s = np.asarray(self.score_fn(self.split, df[u].values, df[v].values), dtype=np.float64)
@@ -154,17 +161,22 @@ def protocol_rank_hard(scorer, split, ctx, n_boot=1000, k_full=100):
     full_candidates     queries with exactly k_full candidates (headline rank_hard numbers)
     partial_candidates  1..k_full-1 candidates; reported separately (ranks are shorter)
     all                 every query with >= 1 candidate, query_auc only (count-independent)
+    cold_start / established   all queries split by the positive's cold-start flag, query_auc only
     """
     s = _scores(scorer, split)
     g, e, n = _per_query(s, split, "ranking_hard")
     has = n > 0
-    pq = per_query_metrics(g, e, np.maximum(n, 1), RANK_KS)
+    pq = per_query_metrics(g, e, np.maximum(n, 1), RANK_KS_HARD)
     take = lambda m: {k: v[m] for k, v in pq.items()}
     full, partial = has & (n == k_full), has & (n < k_full)
-    metrics = [f"hits@{k}" for k in RANK_KS] + ["mrr", "query_auc"]
-    subsets = {"full_candidates": take(full), "partial_candidates": take(partial), "all": take(has)}
+    cold = split["positives"]["cold_start"].values
+    metrics = [f"hits@{k}" for k in RANK_KS_HARD] + ["mrr", "query_auc"]
+    subsets = {"full_candidates": take(full), "partial_candidates": take(partial), "all": take(has),
+               "cold_start": take(has & cold), "established": take(has & ~cold)}
+    qa = ["query_auc"]
     return _ranking(ctx, "rank_hard", "hard", subsets, n_boot,
-                    {"full_candidates": metrics, "partial_candidates": metrics, "all": ["query_auc"]})
+                    {"full_candidates": metrics, "partial_candidates": metrics, "all": qa,
+                     "cold_start": qa, "established": qa})
 
 
 PROTOCOLS = {
@@ -176,11 +188,14 @@ PROTOCOLS = {
 }
 
 
-def evaluate(score_fn: ScoreFn, split: dict, split_name: str, model: str, seed: int, boot_seed: int,
-             n_boot: int = 1000, protocols=PROTOCOL_ORDER, k_full: int = 100):
-    """Run protocols; return (result rows, raw per-protocol scores for paired tests)."""
+def evaluate(score_fn: ScoreFn | None, split: dict, split_name: str, model: str, seed: int, boot_seed: int,
+             n_boot: int = 1000, protocols=PROTOCOL_ORDER, k_full: int = 100, precomputed: dict | None = None):
+    """Run protocols; return (result rows, raw per-protocol scores for paired tests).
+
+    Either score_fn(split, u, v) or precomputed = {pair-set name: scores aligned with that table}.
+    """
     ctx = {"model": model, "split_name": split_name, "seed": seed, "boot_seed": boot_seed}
-    s = PairScores(score_fn, split)
+    s = PairScores(score_fn, split, precomputed)
     rows, raw = [], {}
     for p in protocols:
         fn = PROTOCOLS[p]

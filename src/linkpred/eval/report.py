@@ -97,7 +97,7 @@ def _bars(ax, d: pd.DataFrame, models: list[str], color: str, ref: float | None,
         ax.axvline(ref, color=INK_2, linewidth=1, linestyle=(0, (3, 3)))
 
 
-def protocol_figure(df: pd.DataFrame, split: str, models: list[str], path: Path) -> None:
+def protocol_figure(df: pd.DataFrame, split: str, models: list[str], path: Path, note: str = "") -> None:
     panels = [("hard", "ROC-AUC", 0.5, (0, 1)), ("rank_hard", "MRR (full-candidate queries)", None, None),
               ("rank_random", "MRR", RANDOM_MRR_101, None), ("random", "ROC-AUC", 0.5, (0, 1))]
     fig, axes = plt.subplots(2, 2, figsize=(10, 6.4), dpi=150)
@@ -108,7 +108,7 @@ def protocol_figure(df: pd.DataFrame, split: str, models: list[str], path: Path)
         lim = (xlim[0], xlim[1] * 1.12) if xlim else (0, max(0.05, float(d["ci_high"].max()) * 1.3))
         _bars(ax, d, models, SERIES[0], ref, lim)
         _style(ax, FIG_TITLES[p], label)
-    fig.text(0.01, 0.005, f"{split} split; bars = point estimate, whiskers = bootstrap 95% CI; dashed = random ranker.",
+    fig.text(0.01, 0.005, f"{split} split; bars = point estimate, whiskers = bootstrap 95% CI; dashed = random ranker.{note}",
              fontsize=7, color=INK_2)
     fig.tight_layout(rect=(0, 0.02, 1, 1))
     fig.savefig(path, facecolor=SURFACE)
