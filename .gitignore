@@ -47,3 +47,7 @@ env/
 .vscode/
 .idea/
 .DS_Store
+
+# Colab bundle (Phase 6) -- rebuilt by scripts/make_colab_bundle.py, never committed
+colab_bundle.tar.gz
+*.tar.gz

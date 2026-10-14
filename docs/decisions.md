@@ -420,3 +420,47 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   Procrustes + logistic-regression pipeline loses information; cosine is the fairer node2vec number.
   p and q barely matter (validation cosine 0.642–0.647 across the 3 × 3 grid). Adding node2vec to
   the pair-focused LightGBM does not help on `hard_active` (−0.003, worse in 3/5 seeds).
+
+## 2026-10-15 — GNN design (Phase 6)
+- **Models:** GraphSAGE (2–3 layers) and GAT (2 layers, 4 heads; hidden layers concatenate heads,
+  the last averages) encoders; decoder = MLP over z_u ⊙ z_v (symmetric), dot product as an ablation.
+  Binary cross-entropy, Adam, weight decay 5e-4, gradient clipping at 5, up to 300 epochs, patience 30.
+- **Node features:** (a) structural = [log1p degree, career age, log1p works in the last 2 years,
+  UTS flag], standardised with train-split statistics; (b) (a) + the 384-d author text vector.
+  Both are produced by the Phase 4 `FeatureContext` (`linkpred.features.node_features`), never
+  recomputed differently; a future-perturbation test covers them.
+- **Message passing / supervision:** message passing uses only the split's input graph.
+  Supervision pairs are train-split positives (first co-authorship in 2023, so never an input edge)
+  and pool negatives (unconnected by construction); `assert_supervision_not_in_graph` runs on every
+  training call and is unit-tested on real data. Unlike the usual "hide some edges" GNN setup, no
+  target edge has to be removed from the graph.
+- **Why no alignment (unlike node2vec):** SAGE / GAT learn functions of node features and
+  neighbourhoods, not per-node vectors. The trained weights are applied to the validation / test
+  input graphs directly and produce embeddings in the same learned space; node2vec learns a free
+  vector per node, defined only up to rotation, which is what forced the Procrustes step.
+- **Full-batch training:** the largest input graph has ~100k nodes and ~1.07M directed edges.
+  With 388-d inputs and hidden ≤ 128, activations for 2–3 layers and GAT attention (4 heads × 1M
+  edges) need well under 2 GB, far below a 16 GB T4. Full-batch avoids neighbour-sampling
+  variance and keeps every epoch a deterministic function of the seed (up to GPU scatter order),
+  and the training set (≤ 9k supervision pairs) is too small for mini-batching to pay off.
+- **Objectives:** `general` uses the Phase 4 rule's choice for LightGBM (random negatives, 1:3;
+  re-running the 6-mix rule for every GNN config would multiply the grid by six), early stopping
+  on validation `hard` ROC-AUC, grid choice by validation `hard` ROC-AUC. `pair_focused` uses
+  activity-matched 2023 negatives (1:3), early stopping on validation `hard_active` AP, grid choice
+  by validation `hard_active` ROC-AUC.
+- **Grid (validation only):** SAGE hidden {64, 128} × layers {2, 3} × lr {1e-3, 5e-3}; GAT hidden
+  {64, 128} × 2 layers × lr {1e-3, 5e-3}; dropout 0.3. 10 configs per objective × node-feature
+  setting, 40 in total, seed 0. The best per (objective, encoder, features) — 8 final configs — runs
+  with 5 seeds under all protocols. Dot-decoder ablation: the best encoder/features per objective,
+  5 seeds.
+- **Determinism:** seeds everywhere, cuDNN deterministic, `use_deterministic_algorithms(True,
+  warn_only=True)`, `CUBLAS_WORKSPACE_CONFIG=:4096:8`. Some PyG scatter ops may remain
+  nondeterministic on CUDA; the best config is re-run with the same seed and the score/metric
+  differences are reported (`results/gnn_determinism.csv`), not hidden.
+- **Hybrid:** pair-focused LightGBM + the best GNN's score (best = highest mean validation
+  `hard_active` ROC-AUC). The GNN score for the hybrid's training pairs is **out-of-fold** (5 folds;
+  each fold scored by a GNN trained on the train split without that fold's pairs), so LightGBM never
+  sees in-sample GNN scores; val/test GNN scores come from the final run with the same seed.
+- **Compute split:** Colab trains and scores the GNNs (and evaluates them); paired tests against
+  the refitted pair-focused LightGBM and the hybrid run locally (`scripts/gnn_analysis.py`) from the
+  saved scores, so the Colab bundle needs no pair-feature tables.

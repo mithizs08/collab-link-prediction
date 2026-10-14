@@ -133,23 +133,17 @@ models:
     q_grid: [0.5, 1, 2]
     operators: [hadamard, average, l1, l2]
 
-  graphsage:
-    hidden_channels: 128
-    num_layers: 2
-    dropout: 0.3
-    lr: 0.005
-    weight_decay: 0.0
-    epochs: 200
-    patience: 20              # early stopping on validation metric
-    batch_size: 1024
-
-  gat:
-    hidden_channels: 64
-    heads: 4
-    num_layers: 2
-    dropout: 0.3
-    lr: 0.005
+  gnn:
+    # Phase 6 (docs/decisions.md). Full-batch training on each split's input graph.
+    objectives: [general, pair_focused]
+    node_features: [structural, text]      # structural (4) | structural + 384-d author text vector
+    general_mix: [0.0, 3]                  # Phase 4 rule's choice for LightGBM: random negatives, 1:3
+    pair_focused_ratio: 3                  # activity-matched 2023 negatives, 1:3 (as pair-focused LightGBM)
+    max_epochs: 300
+    patience: 30                           # epochs without validation improvement
     weight_decay: 0.0005
-    epochs: 200
-    patience: 20
-    batch_size: 1024
+    heads: 4                               # GAT
+    oof_folds: 5                           # out-of-fold GNN scores for the hybrid's training pairs
+    grid:                                  # chosen on validation only; 10 configs per objective x features
+      sage: {hidden: [64, 128], layers: [2, 3], dropout: [0.3], lr: [0.001, 0.005]}
+      gat: {hidden: [64, 128], layers: [2], dropout: [0.3], lr: [0.001, 0.005]}

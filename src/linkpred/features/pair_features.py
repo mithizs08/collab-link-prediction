@@ -66,7 +66,8 @@ def load_feature_tables(processed) -> dict[str, pd.DataFrame]:
 
 class FeatureContext:
     def __init__(self, tables: dict, cutoff: int, nodes: pd.DataFrame, graph_edges: pd.DataFrame,
-                 A: sp.csr_matrix, emb: np.ndarray | None, emb_ids: pd.DataFrame | None, params: dict):
+                 A: sp.csr_matrix, emb: np.ndarray | None, emb_ids: pd.DataFrame | None, params: dict,
+                 communities: bool = True):
         self.c = cutoff
         self.p = params
         self.n = len(nodes)
@@ -86,7 +87,8 @@ class FeatureContext:
 
         # Components (disconnected flag) and Louvain communities on the weighted input graph.
         _, self.comp = connected_components(self.A, directed=False)
-        self.community = self._louvain(graph_edges, params["seed"])
+        # Louvain is only needed for pair features; node features (GNN) skip it.
+        self.community = self._louvain(graph_edges, params["seed"]) if communities else None
 
         # Per-author activity before the cutoff.
         aw = pd.DataFrame({"a": a_idx, "w": auth["work_id"].values, "y": auth["year"].values}).drop_duplicates(["a", "w"])

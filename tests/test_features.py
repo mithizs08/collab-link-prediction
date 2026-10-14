@@ -154,3 +154,26 @@ def test_training_set_mix_counts(synth):
     assert y.sum() == P and (y == 0).sum() == 2 * P
     Xs, ys = training_set(train, feat, ["x"], 0.0, 1, specialist=True)
     assert ys.sum() == (train["positives"]["distance"] == 2).sum()
+
+
+@pytest.mark.parametrize("split", ["train", "val", "test"])
+def test_gnn_node_features_ignore_works_in_or_after_cutoff(synth, split):
+    """GNN node features (degree, career age, recent works, UTS flag, text vector) are built by the
+    same FeatureContext and are unchanged when every work in/after the cutoff is deleted."""
+    from linkpred.features.node_features import node_feature_arrays
+
+    cutoff = synth["cfg"]["splits"][split]["cutoff"]
+
+    def arrays(ft, st, emb):
+        nodes, g, A = build_input_graph(st, cutoff)
+        ctx = FeatureContext(ft, cutoff, nodes, g, A, emb, synth["emb_ids"], PARAMS, communities=False)
+        return node_feature_arrays(ctx)
+
+    s1, t1 = arrays(synth["ft"], synth["st"], synth["emb"])
+    past = {k: (df[df["year"] < cutoff] if "year" in df.columns else df) for k, df in synth["ft"].items()}
+    st_past = {k: (df[df["year"] < cutoff] if "year" in df.columns else df) for k, df in synth["st"].items()}
+    emb2 = synth["emb"].copy()
+    future = synth["ft"]["works"]["year"].values >= cutoff
+    emb2[future] = np.random.default_rng(7).normal(size=(future.sum(), emb2.shape[1]))
+    s2, t2 = arrays(past, st_past, emb2)
+    assert np.array_equal(s1, s2) and np.array_equal(t1, t2)

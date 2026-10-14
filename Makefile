@@ -2,7 +2,7 @@ PYTHON ?= python
 CONFIG ?= configs/default.yaml
 RUN = PYTHONPATH=src $(PYTHON) -m linkpred.cli --config $(CONFIG)
 
-.PHONY: help data splits baselines features train evaluate report test all clean-results
+.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis
 
 help:
 	@echo "Targets: data splits baselines features train evaluate report test all"
@@ -24,6 +24,19 @@ train:       ## feature models (LR, LightGBM): mix grid, search, 5 seeds, paired
 	PYTHONPATH=src $(PYTHON) scripts/run_feature_models.py --config $(CONFIG)
 	PYTHONPATH=src $(PYTHON) scripts/activity_diagnostic.py
 	PYTHONPATH=src $(PYTHON) scripts/run_node2vec.py --config $(CONFIG)
+
+gnn-bundle:  ## node features + colab_bundle.tar.gz for the Colab GPU run (not committed)
+	PYTHONPATH=src $(PYTHON) -c "from linkpred.config import load_config; from linkpred.features.node_features import build_node_features; build_node_features(load_config('$(CONFIG)'))"
+	PYTHONPATH=src $(PYTHON) scripts/make_colab_bundle.py
+
+gnn-dry:     ## local CPU dry run of the whole GNN pipeline (2 epochs, 1 seed) into /tmp/gnn_dry
+	PYTHONPATH=src $(PYTHON) scripts/run_gnn.py --out /tmp/gnn_dry --device cpu --dry
+
+gnn-import:  ## make gnn-import SRC=~/Downloads/gnn_results
+	PYTHONPATH=src $(PYTHON) scripts/import_colab_results.py $(SRC)
+
+gnn-analysis: ## paired tests, hybrid LightGBM, results/gnn.md (after gnn-import)
+	PYTHONPATH=src $(PYTHON) scripts/gnn_analysis.py
 
 evaluate:    ## score models on val/test, write results/*.csv
 	$(RUN) evaluate
