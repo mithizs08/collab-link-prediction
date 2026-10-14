@@ -29,8 +29,12 @@ Decisions behind the design are in `docs/decisions.md`; leakage guarantees are e
 - **Ranking candidates:** for each positive (u, v), 100 distinct (u, w): w a UTS author in the
   input graph, w ≠ u, unconnected to u, no joint work with u in the prediction year. u is the
   endpoint with the smaller author ID (an arbitrary but fixed choice).
+- **Hard ranking candidates (`rank_hard`):** for each distance-2 positive (u, v), up to 100 distinct
+  (u, w): w a UTS author at distance exactly 2 from u, unconnected to u, no joint work with u in the
+  prediction year. Fewer than 100 when fewer exist; see the table below and `docs/decisions.md`.
 - **Randomness:** one independent numpy stream per sampler per split, derived from `seed` in the
-  config (`SeedSequence([seed, split_index]).spawn(3)`). Negatives are a fixed evaluation set; the
+  config (`SeedSequence([seed, split_index]).spawn(4)`: random negatives, hard negatives, ranking,
+  hard ranking). Negatives are a fixed evaluation set; the
   five model seeds vary model training, not these files.
 
 ## Files (`data/processed/splits/<split>/`)
@@ -40,9 +44,11 @@ Decisions behind the design are in `docs/decisions.md`; leakage guarantees are e
 | `nodes.parquet` | `node_idx, author_id, is_uts, n_works_before, degree` |
 | `graph_edges.parquet` | `u_idx < v_idx, author_u, author_v, weight, first_year, last_year` |
 | `adjacency.npz` | symmetric weighted scipy CSR, `scipy.sparse.load_npz` |
-| `positives.parquet`, `neg_random.parquet` | `author_u < author_v, u_idx, v_idx` |
+| `positives.parquet` | `author_u < author_v, u_idx, v_idx, distance, cold_start` (both pre-cutoff; used only to define evaluation strata) |
+| `neg_random.parquet` | `author_u < author_v, u_idx, v_idx` |
 | `neg_hard.parquet` | same + `n_common` (common neighbours in the input graph) |
 | `ranking.parquet` | `query_id` (row in positives), `head_idx, head, cand_idx, cand` |
+| `ranking_hard.parquet` | same columns; distance-2 positives only |
 | `meta.json` | all counts below, the seed, distance and cold-start diagnostics |
 
 Node indices are per split; `author_id` is the stable key across splits.
@@ -86,6 +92,15 @@ For comparison, the same distribution for the random negatives (hard negatives a
 | val | 2,225 | 25 | 104 | 1,550 | 546 | 0.011 | 0.047 | 0.697 | 0.245 |
 | test | 2,533 | 25 | 123 | 1,749 | 636 | 0.010 | 0.049 | 0.690 | 0.251 |
 
+## Hard ranking candidates (rank_hard protocol)
+One query per distance-2 positive; up to 100 candidates at distance 2 from the head. `rank_hard_full` queries have all 100; `partial` have fewer (all that exist) and are reported as a separate stratum.
+
+| split | rank_hard_queries | rank_hard_full | rank_hard_partial | rank_hard_no_candidates | rank_hard_median_candidates | rank_hard_rows |
+|---|---|---|---|---|---|---|
+| train | 1,343 | 1,049 | 293 | 1 | 100 | 121,055 |
+| val | 1,432 | 1,152 | 280 | 0 | 100 | 131,250 |
+| test | 1,684 | 1,377 | 307 | 0 | 100 | 153,031 |
+
 ## Cold-start positives (an endpoint with ≤ 2 works before the cutoff)
 | split | positives | pos_cold_start_any | pos_cold_start_both | pos_with_isolated_endpoint | share_cold_start_any |
 |---|---|---|---|---|---|
@@ -107,8 +122,10 @@ For comparison, the same distribution for the random negatives (hard negatives a
 3. **But 34–41% of positives are not at distance 2.** Pairs at distance 3+, or disconnected, have
    no common neighbours, so neighbourhood heuristics give them a score of 0, below every hard
    negative. On hard negatives, these heuristics are therefore capped well below a perfect score
-   by construction, and models that can reach beyond two hops (embeddings, GNNs, text) have
-   room to do better. Results should be broken down by positive distance when they are compared.
+   by construction. For the same reason, "all positives vs hard negatives" is an artefact (distance
+   alone separates the classes), so the evaluation uses like-for-like protocols instead: `hard`
+   compares only distance-2 positives with hard negatives. See "Evaluation protocols" in
+   `docs/decisions.md`.
 4. **Cold start is common.** 30–38% of positives involve an author with fewer than 3 works before
    the cutoff (rising over time as UTS grows). These authors have little graph signal; this is a
    natural subgroup to report separately.

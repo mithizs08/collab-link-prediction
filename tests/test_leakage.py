@@ -144,10 +144,22 @@ def _graph_pairs(sp_) -> set:
     return _pairs(sp_["graph_edges"])
 
 
+def _ordered(rk: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame({"author_u": rk[["head", "cand"]].min(axis=1), "author_v": rk[["head", "cand"]].max(axis=1)})
+
+
 def _all_negatives(sp_) -> pd.DataFrame:
-    rk = sp_["ranking"].rename(columns={"head": "a", "cand": "b"})
-    rk = pd.DataFrame({"author_u": rk[["a", "b"]].min(axis=1), "author_v": rk[["a", "b"]].max(axis=1)})
-    return pd.concat([sp_["neg_random"][["author_u", "author_v"]], sp_["neg_hard"][["author_u", "author_v"]], rk])
+    return pd.concat([sp_["neg_random"][["author_u", "author_v"]], sp_["neg_hard"][["author_u", "author_v"]],
+                      _ordered(sp_["ranking"]), _ordered(sp_["ranking_hard"])])
+
+
+def _neighbours(sp_) -> dict:
+    g = sp_["graph_edges"]
+    nbrs: dict[str, set] = {}
+    for u, v in zip(g["author_u"], g["author_v"]):
+        nbrs.setdefault(u, set()).add(v)
+        nbrs.setdefault(v, set()).add(u)
+    return nbrs
 
 
 # ---------------------------------------------------------------- the required leakage checks
@@ -196,8 +208,9 @@ def test_all_pairs_are_uts_authors_in_input_graph(bundle, name):
     for key in ("positives", "neg_random", "neg_hard"):
         ids = set(sp_[key]["author_u"]) | set(sp_[key]["author_v"])
         assert ids <= allowed, f"{key} uses non-UTS or out-of-graph authors"
-    rk = sp_["ranking"]
-    assert set(rk["head"]) | set(rk["cand"]) <= allowed
+    for key in ("ranking", "ranking_hard"):
+        rk = sp_[key]
+        assert set(rk["head"]) | set(rk["cand"]) <= allowed, f"{key} uses non-UTS or out-of-graph authors"
 
 
 @pytest.mark.parametrize("name", SPLITS)
@@ -215,11 +228,7 @@ def test_negatives_unconnected_and_not_window_collaborations(bundle, name):
 @pytest.mark.parametrize("name", SPLITS)
 def test_hard_negatives_at_distance_exactly_two(bundle, name):
     sp_ = bundle["splits"][name]
-    g = sp_["graph_edges"]
-    nbrs: dict[str, set] = {}
-    for u, v in zip(g["author_u"], g["author_v"]):
-        nbrs.setdefault(u, set()).add(v)
-        nbrs.setdefault(v, set()).add(u)
+    nbrs = _neighbours(sp_)
     for u, v in zip(sp_["neg_hard"]["author_u"], sp_["neg_hard"]["author_v"]):
         nu, nv = nbrs.get(u, set()), nbrs.get(v, set())
         assert v not in nu                      # not distance 1
@@ -252,6 +261,40 @@ def test_negative_counts_one_to_one(bundle):
         assert not sp_["neg_hard"].duplicated(["author_u", "author_v"]).any()
 
 
+@pytest.mark.parametrize("name", SPLITS)
+def test_positive_distance_column(bundle, name):
+    """distance == 2 exactly when the pair shares a neighbour in the input graph (protocols rely on it)."""
+    sp_ = bundle["splits"][name]
+    nbrs = _neighbours(sp_)
+    pos = sp_["positives"]
+    shares = np.array([bool(nbrs.get(u, set()) & nbrs.get(v, set())) for u, v in zip(pos["author_u"], pos["author_v"])])
+    assert ((pos["distance"] == 2).values == shares).all()
+    assert (pos["distance"] >= 2).all()
+
+
+@pytest.mark.parametrize("name", SPLITS)
+def test_rank_hard_candidates(bundle, name):
+    t, sp_ = bundle["tables"], bundle["splits"][name]
+    cutoff, window_end = _cut(bundle, name)
+    rk, pos = sp_["ranking_hard"], sp_["positives"]
+    k = bundle["cfg"]["negatives"]["ranking_candidates"]
+    nbrs = _neighbours(sp_)
+    window = _window_collab(t, cutoff, window_end)
+    # Queries are exactly the distance-2 positives (minus any with an empty pool), head = author_u.
+    d2 = set(np.flatnonzero((pos["distance"] == 2).values))
+    q = set(rk["query_id"])
+    assert q <= d2
+    assert len(d2 - q) == sp_["stats"]["rank_hard_no_candidates"]
+    assert (rk["head"].values == pos["author_u"].values[rk["query_id"]]).all()
+    per_q = rk.groupby("query_id")["cand"]
+    assert (per_q.size() <= k).all() and (per_q.nunique() == per_q.size()).all()
+    for h, w in zip(rk["head"], rk["cand"]):
+        assert h != w
+        assert w not in nbrs.get(h, set())                       # not connected
+        assert nbrs.get(h, set()) & nbrs.get(w, set())           # distance exactly 2
+        assert (min(h, w), max(h, w)) not in window              # no joint work in the window
+
+
 # ---------------------------------------------------------------- reproducibility
 
 def _run_train(cfg, t, seed):
@@ -263,10 +306,11 @@ def _run_train(cfg, t, seed):
 def test_same_seed_reproduces_synthetic(synthetic):
     cfg, t = synthetic["cfg"], synthetic["tables"]
     a, b = _run_train(cfg, t, 7), _run_train(cfg, t, 7)
-    for key in ("positives", "neg_random", "neg_hard", "ranking"):
+    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard"):
         pd.testing.assert_frame_equal(a[key], b[key])
     c = _run_train(cfg, t, 8)
     assert not (a["neg_random"].equals(c["neg_random"]) and a["ranking"].equals(c["ranking"]))
+    assert not a["ranking_hard"].equals(c["ranking_hard"])
 
 
 def test_saved_splits_reproduce_from_config_seed(bundle):
@@ -274,7 +318,7 @@ def test_saved_splits_reproduce_from_config_seed(bundle):
     cfg, t = bundle["cfg"], bundle["tables"]
     fresh = _run_train(cfg, t, cfg["seed"])
     saved = bundle["splits"]["train"]
-    for key in ("positives", "neg_random", "neg_hard", "ranking"):
+    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard"):
         pd.testing.assert_frame_equal(fresh[key].reset_index(drop=True), saved[key].reset_index(drop=True),
                                       check_dtype=False)
 
@@ -291,3 +335,6 @@ def test_synthetic_fixture_covers_edge_cases(synthetic):
     test_uts = set(synthetic["splits"]["test"]["nodes"].query("is_uts")["author_id"])
     assert switchers & test_uts
     assert (t["works"]["n_authors"] > 25).sum() == 2
+    for name in SPLITS:                       # rank_hard tests must not pass vacuously
+        st = synthetic["splits"][name]["stats"]
+        assert st["rank_hard_queries"] > 0 and st["rank_hard_rows"] > 0

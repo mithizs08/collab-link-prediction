@@ -10,6 +10,7 @@ predict which author pairs co-author for the first time in the following window.
 ## Layout
 - `src/linkpred/` — package (`config.py`: config + `set_seed`; `results.py`: the only results writer; `cli.py`: pipeline stages)
 - `src/linkpred/data/` — `build.py` (raw OpenAlex → `data/processed/*.parquet`), `audit.py` (→ `report/data_audit/`, `figures/audit_*`, `docs/data_audit.md`), `fetch_openalex.py` (optional re-pull), `splits.py` (→ `data/processed/splits/<split>/`, format in `docs/splits.md`; load with `splits.load_split`)
+- `src/linkpred/eval/` — `metrics.py` (tie rules), `protocols.py`, `bootstrap.py`, `report.py`; `src/linkpred/models/heuristics.py`; `scripts/run_baselines.py` → `results/baselines.*`
 - `data/processed/authors.parquet` aggregates all years: descriptive only, never a feature (rule 1)
 - `configs/default.yaml` — all paths, split years, sampling ratios, seeds, hyperparameters
 - `data/{raw,interim,processed}` — git-ignored
@@ -28,8 +29,8 @@ predict which author pairs co-author for the first time in the following window.
    mean ± std across seeds.
 3. **Results live in files.** All results are written to `results/` as CSV via
    `linkpred.results.write_results`, with columns
-   `model, split, negative_type, seed, metric, value`. Never report a number (in chat, README,
-   report, or figures) that isn't in a results file.
+   `model, split, protocol, subset, negative_type, seed, metric, value, ci_low, ci_high`.
+   Never report a number (in chat, README, report, or figures) that isn't in a results file.
 4. **Honest reporting.** If a simple baseline matches or beats a complex model, say so plainly.
    Never tune on the test set: hyperparameters, early stopping, thresholds and model selection
    use the validation split only. Test is evaluated once per final configuration.
@@ -38,3 +39,8 @@ predict which author pairs co-author for the first time in the following window.
 6. **Document decisions.** Explain non-obvious decisions in code comments and in
    `docs/decisions.md`, one dated entry per decision (format: date, decision, alternatives,
    reason).
+7. **Same protocols for every model.** Evaluate with `linkpred.eval.protocols.evaluate` on the
+   saved split pairs: `hard` (distance-2 positives vs hard negatives) is the headline;
+   `rank_hard`, `rank_random`, `random` are secondary; `diagnostic_all_vs_hard` goes only in an
+   appendix with its warning. Never feed shortest-path distance to a model without checking it
+   against the `hard` protocol (see decisions.md, "Evaluation protocols").

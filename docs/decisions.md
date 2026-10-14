@@ -175,3 +175,71 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
 - **Leakage tests were mutation-checked:** deliberately reintroducing each leak (future edges and
   nodes, label-year UTS status, window collaborators as negatives, unfiltered hard negatives,
   connected positives, unseeded sampling) in a scratch copy made `tests/test_leakage.py` fail.
+
+## 2026-10-14 — Evaluation protocols (fixes a distance artefact)
+- **Problem:** all hard negatives are at distance exactly 2, but 34–41% of positives are at
+  distance ≥ 3. In "all positives vs hard negatives", distance ≥ 3 identifies a positive
+  perfectly, so a model given shortest-path distance (or anything correlated with it) would learn
+  an artefact of the evaluation design rather than the task.
+- **Decision (project owner):** every model from now on is evaluated with five protocols on the
+  same saved pairs (`linkpred.eval.protocols`):
+  - `hard`: distance-2 positives vs hard negatives (like-for-like). **Headline.**
+  - `rank_random`: Hits@20/50/100 and MRR for each positive against its 100 random ranking candidates.
+  - `rank_hard`: each distance-2 positive (u, v) against up to 100 candidates (u, w), w a UTS
+    author at distance exactly 2 from u in the input graph, not connected to u and with no joint
+    work with u in the prediction year. Seeded (fourth independent stream; the first three, and
+    therefore all previously built pairs, are unchanged). Built in `splits.py`, file
+    `ranking_hard.parquet`, covered by `tests/test_leakage.py` and mutation-checked.
+  - `random`: all positives vs random negatives (easy; comparability with the literature).
+  - `diagnostic_all_vs_hard`: all positives vs hard negatives, appendix only, with a warning.
+- **rank_hard with fewer than 100 candidates:** 18–22% of distance-2 positives have fewer than 100
+  eligible candidates (one train query has none and is dropped; counts in `docs/splits.md`). A
+  positive ranked among fewer candidates gets a better rank by construction, so MRR / Hits@K are
+  not comparable across candidate counts. **Choice:** rank against however many exist and report
+  strata: `full_candidates` (exactly 100; the headline rank_hard numbers), `partial_candidates`
+  (reported separately), and `all` with only `query_auc` = the fraction of a query's candidates
+  the positive beats (ties ½), which does not depend on the candidate count.
+  *Alternatives:* drop partial queries (loses information and biases toward well-connected heads);
+  pad with random candidates (mixes in easy negatives); normalised MRR (no standard definition).
+
+## 2026-10-14 — Tie handling in metrics
+- **Decision:** scores are snapped to ~12 significant digits so float-rounding differences count
+  as ties. ROC-AUC counts tied pairs as ½ (average ranks). AP treats tied scores as one threshold.
+  Hits@K and MRR use the expectation under uniformly random tie-breaking: with g candidates above
+  and e tied, the rank is uniform on {g+1, …, g+e+1}.
+- **Alternatives:** optimistic ranks (g+1) or pessimistic ranks (g+e+1).
+- **Reason:** heuristics give many pairs a score of exactly 0. Optimistic ranking would reward a
+  model for scoring everything 0; pessimistic ranking would punish it for ties it cannot break.
+  With the expectation, a constant scorer gets exactly the random-ranker values (unit-tested).
+
+## 2026-10-14 — Results schema extended
+- **Decision:** results CSVs now have
+  `model, split, protocol, subset, negative_type, seed, metric, value, ci_low, ci_high`.
+  `protocol` is one of the five protocols; `subset` is `all` or a stratum (`distance=3`,
+  `cold_start`, `full_candidates`, …); `ci_low`/`ci_high` are bootstrap 95% intervals (empty when
+  not computed). Deterministic models (heuristics) record the config seed, i.e. the seed that
+  fixed the evaluation pairs. Counts (`n_positives`, `n_negatives`, `n_queries`) are rows too.
+- **Reason:** the original six columns could not hold the protocol, strata or intervals. CLAUDE.md
+  rule 3 updated accordingly.
+
+## 2026-10-14 — Bootstrap design
+- **Decision:** 1,000 percentile-bootstrap resamples. Classification protocols resample positives
+  and negatives separately (stratified, fixed class sizes); ranking protocols resample queries.
+  Resample indices depend on (seed, protocol, split) but not on the model, so all models see
+  identical resamples. Paired tests apply the same indices to both models; two-sided p-value =
+  2·min(P(Δ ≤ 0), P(Δ ≥ 0)), floored at 1/1,000.
+- **Reporting the "best" heuristic:** the best heuristic per protocol is chosen on **validation**
+  by the protocol's headline metric, then reported on test and compared (paired) with every other
+  heuristic on test. Picking the winner on test would be a mild form of tuning on test.
+
+## 2026-10-14 — Truncated Katz beta selected on validation
+- **Decision:** walks of length 1–3 on the binary input-graph adjacency; beta chosen from
+  {1e-4, 1e-3, 5e-3, 0.01, 0.05, 0.1, 0.5} by validation `hard` ROC-AUC (ties toward the smaller beta).
+- **Note:** for the unconnected pairs we score, Katz ranks by A² + β·A³, so beta only trades
+  common neighbours against length-3 walks. Result in `results/katz_beta_selection.csv`.
+
+## 2026-10-14 — Phase 4 note: training negatives
+- Training negatives must not let distance alone separate the classes (e.g. training only on
+  random negatives, which are almost never at distance 2, while positives mostly are). The
+  training negative mix (random / hard / both) will be chosen on validation under the `hard`
+  protocol, not fixed in advance.

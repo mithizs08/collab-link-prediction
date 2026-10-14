@@ -17,6 +17,8 @@ neg_hard      uniform among unconnected UTS-UTS pairs at shortest-path distance 
               the full input graph (paths may pass through non-UTS authors).
 ranking       per positive (u, v): K candidates (u, w), w a UTS node in the graph, w != u,
               (u, w) unconnected and not a collab-in-window pair.
+ranking_hard  per distance-2 positive (u, v): up to K candidates (u, w) as above but with w at
+              distance exactly 2 from u; fewer than K when fewer exist (count in meta.json).
 
 All sampling uses numpy Generators derived from cfg["seed"] and the split index, one
 independent stream per sampler, so outputs are reproducible and do not depend on the
@@ -26,10 +28,13 @@ Output format, data/processed/splits/<split>/:
   nodes.parquet        node_idx, author_id, is_uts, n_works_before, degree
   graph_edges.parquet  u_idx < v_idx, author_u, author_v, weight, first_year, last_year
   adjacency.npz        scipy CSR, symmetric, weighted (fast load for heuristics / PyG)
-  positives.parquet    author_u < author_v, u_idx, v_idx
+  positives.parquet    author_u < author_v, u_idx, v_idx, distance (unweighted, in the input
+                       graph; inf = disconnected), cold_start (an endpoint with <= cold_start_max_works
+                       works before the cutoff)
   neg_random.parquet   same columns
   neg_hard.parquet     same columns + n_common (common neighbours in the input graph)
   ranking.parquet      query_id (row of positives), head_idx, head, cand_idx, cand
+  ranking_hard.parquet same columns; distance-2 positives only, <= K candidates at distance 2 from head
   meta.json            counts, distance distribution, cold-start stats, config used
 Node indices are per split (author_id is the stable key across splits).
 """
@@ -204,7 +209,9 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     positives = _pairs_frame(pos_keys, n, nodes)
 
     # Independent, reproducible streams.
-    r_rand, r_hard, r_rank = (np.random.default_rng(s) for s in np.random.SeedSequence([seed, split_no]).spawn(3))
+    # spawn(4)[:3] == spawn(3), so adding the rank_hard stream left earlier outputs unchanged.
+    r_rand, r_hard, r_rank, r_rank_hard = (
+        np.random.default_rng(s) for s in np.random.SeedSequence([seed, split_no]).spawn(4))
     forbidden = connected | collab_window
 
     k_rand = int(round(neg_ratio.get("random", 1) * len(positives)))
@@ -257,6 +264,38 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     cold_v = nwb.loc[positives["v_idx"]].values <= cold_max_works
     deg = nodes.set_index("node_idx")["degree"]
     isolated = (deg.loc[positives["u_idx"]].values == 0) | (deg.loc[positives["v_idx"]].values == 0)
+    # Evaluation strata, both computed from the pre-cutoff graph only.
+    positives["distance"] = dist
+    positives["cold_start"] = cold_u | cold_v
+
+    # Hard ranking candidates (rank_hard protocol): for each distance-2 positive (u, v), up to
+    # n_rank w drawn uniformly from UTS authors at distance exactly 2 from u, excluding u's
+    # neighbours and anyone with a joint work with u in the window (incl. v).
+    is_uts_node = nodes["is_uts"].values
+    forbidden_arr = np.sort(np.fromiter(forbidden, dtype=np.int64))
+    d2_q = np.flatnonzero(dist == 2)
+    heads = positives["u_idx"].values[d2_q]
+    uniq = np.unique(heads)
+    H2 = (Ab[uniq] @ Ab).tocsr()
+    H2.sort_indices()
+    pools = {}
+    for i, h in enumerate(uniq):
+        cols = H2.indices[H2.indptr[i]:H2.indptr[i + 1]]
+        cols = cols[is_uts_node[cols] & (cols != h)]
+        keys = _keys(np.full(len(cols), h), cols, n)
+        pos_ = np.searchsorted(forbidden_arr, keys)
+        hit = (pos_ < len(forbidden_arr)) & (forbidden_arr[np.minimum(pos_, len(forbidden_arr) - 1)] == keys)
+        pools[int(h)] = cols[~hit]
+    rows_h, n_cands = [], []
+    for q, h in zip(d2_q, heads):
+        pool = pools[int(h)]
+        k = min(n_rank, len(pool))
+        pick = r_rank_hard.choice(pool, size=k, replace=False) if k else np.empty(0, dtype=np.int64)
+        n_cands.append(k)
+        rows_h.extend((int(q), int(h), int(w)) for w in pick)
+    rkh = pd.DataFrame(rows_h, columns=["query_id", "head_idx", "cand_idx"])
+    rkh["head"], rkh["cand"] = ids[rkh["head_idx"]], ids[rkh["cand_idx"]]
+    n_cands = np.array(n_cands)
 
     stats.update(
         cutoff=cutoff, window_end=window_end,
@@ -265,6 +304,10 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
         uts_nodes_with_edges=int((nodes["is_uts"] & (nodes["degree"] > 0)).sum()),
         positives=len(positives), neg_random=len(neg_random), neg_hard=len(neg_hard),
         ranking_rows=len(rk), ranking_k=n_rank,
+        rank_hard_queries=int(len(d2_q)), rank_hard_full=int((n_cands == n_rank).sum()),
+        rank_hard_partial=int(((n_cands > 0) & (n_cands < n_rank)).sum()),
+        rank_hard_no_candidates=int((n_cands == 0).sum()), rank_hard_rows=len(rkh),
+        rank_hard_median_candidates=float(np.median(n_cands)) if len(n_cands) else 0.0,
         pos_with_isolated_endpoint=int(isolated.sum()),
         pos_cold_start_any=int((cold_u | cold_v).sum()), pos_cold_start_both=int((cold_u & cold_v).sum()),
         cold_start_max_works=cold_max_works,
@@ -274,7 +317,7 @@ def make_split(t: dict, uts_pairs: pd.DataFrame, cutoff: int, window_end: int, s
     )
     return {"nodes": nodes, "graph_edges": g, "A": A, "positives": positives,
             "neg_random": neg_random, "neg_hard": neg_hard, "ranking": rk[["query_id", "head_idx", "head", "cand_idx", "cand"]],
-            "stats": stats}
+            "ranking_hard": rkh[["query_id", "head_idx", "head", "cand_idx", "cand"]], "stats": stats}
 
 
 # ---------------------------------------------------------------- pipeline
@@ -296,7 +339,7 @@ def build_splits(cfg: dict, write: bool = True) -> dict[str, dict]:
         if write:
             d = out_root / name
             d.mkdir(parents=True, exist_ok=True)
-            for key in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking"):
+            for key in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking", "ranking_hard"):
                 res[key].to_parquet(d / f"{key}.parquet", index=False)
             sp.save_npz(d / "adjacency.npz", res["A"])
             (d / "meta.json").write_text(json.dumps(res["stats"], indent=2) + "\n")
@@ -306,7 +349,7 @@ def build_splits(cfg: dict, write: bool = True) -> dict[str, dict]:
 def load_split(root: Path, name: str) -> dict:
     d = Path(root) / name
     out = {k: pd.read_parquet(d / f"{k}.parquet")
-           for k in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking")}
+           for k in ("nodes", "graph_edges", "positives", "neg_random", "neg_hard", "ranking", "ranking_hard")}
     out["A"] = sp.load_npz(d / "adjacency.npz").tocsr()
     out["stats"] = json.loads((d / "meta.json").read_text())
     return out

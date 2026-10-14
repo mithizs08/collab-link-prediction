@@ -17,6 +17,10 @@ EXCLUSION_COLS = [
     "split", "window_uts_pairs_with_edge", "excluded_connected_in_graph",
     "excluded_prior_hyper_work_only", "positives",
 ]
+RANK_HARD_COLS = [
+    "split", "rank_hard_queries", "rank_hard_full", "rank_hard_partial", "rank_hard_no_candidates",
+    "rank_hard_median_candidates", "rank_hard_rows",
+]
 COLD_COLS = [
     "split", "positives", "pos_cold_start_any", "pos_cold_start_both", "pos_with_isolated_endpoint",
 ]
@@ -36,6 +40,7 @@ def tables(stats: dict[str, dict]) -> dict[str, pd.DataFrame]:
         "distance": dist[["split", "positives", "d2", "d3", "d4plus", "disconnected",
                           "share_d2", "share_d3", "share_d4plus", "share_disconnected", "d1_or_less"]],
         "cold_start": cold,
+        "rank_hard": df[RANK_HARD_COLS],
         "distance_neg_random": dist_neg[["split", "pairs", "d2", "d3", "d4plus", "disconnected",
                                          "share_d2", "share_d3", "share_d4plus", "share_disconnected"]],
     }
@@ -70,6 +75,13 @@ def render(t: dict[str, pd.DataFrame], cold_max: int) -> str:
         "(hard negatives are all at distance 2 by construction):",
         "",
         _md_table(t["distance_neg_random"]),
+        "",
+        "## Hard ranking candidates (rank_hard protocol)",
+        "One query per distance-2 positive; up to 100 candidates at distance 2 from the head. "
+        "`rank_hard_full` queries have all 100; `partial` have fewer (all that exist) and are "
+        "reported as a separate stratum.",
+        "",
+        _md_table(t["rank_hard"]),
         "",
         f"## Cold-start positives (an endpoint with ≤ {cold_max} works before the cutoff)",
         _md_table(t["cold_start"]),

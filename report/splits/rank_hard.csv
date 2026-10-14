@@ -1,0 +1,4 @@
+split,rank_hard_queries,rank_hard_full,rank_hard_partial,rank_hard_no_candidates,rank_hard_median_candidates,rank_hard_rows
+train,1343,1049,293,1,100.0,121055
+val,1432,1152,280,0,100.0,131250
+test,1684,1377,307,0,100.0,153031

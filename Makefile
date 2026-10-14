@@ -14,8 +14,8 @@ data:        ## download raw works and build the cleaned co-authorship table
 splits:      ## build leak-free temporal train/val/test edges + negatives
 	$(RUN) splits
 
-baselines:   ## graph heuristics (CN, Jaccard, Adamic-Adar, PA, ...)
-	$(RUN) baselines
+baselines:   ## graph heuristics + Katz under all evaluation protocols -> results/baselines.*
+	PYTHONPATH=src $(PYTHON) scripts/run_baselines.py --config $(CONFIG)
 
 features:    ## pair features for LightGBM, computed per-split from pre-cutoff graph only
 	$(RUN) features
