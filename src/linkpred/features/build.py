@@ -28,9 +28,10 @@ log = logging.getLogger(__name__)
 
 PAIR_SETS = {
     "train": [("positives", "u_idx", "v_idx"), ("train_pool_random", "u_idx", "v_idx"),
-              ("train_pool_hard", "u_idx", "v_idx")],
+              ("train_pool_hard", "u_idx", "v_idx"), ("train_pool_hard_active", "u_idx", "v_idx")],
     "eval": [("positives", "u_idx", "v_idx"), ("neg_random", "u_idx", "v_idx"), ("neg_hard", "u_idx", "v_idx"),
-             ("ranking", "head_idx", "cand_idx"), ("ranking_hard", "head_idx", "cand_idx")],
+             ("neg_hard_active", "u_idx", "v_idx"), ("ranking", "head_idx", "cand_idx"),
+             ("ranking_hard", "head_idx", "cand_idx"), ("ranking_hard_active", "head_idx", "cand_idx")],
 }
 
 

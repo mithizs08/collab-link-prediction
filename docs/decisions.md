@@ -337,3 +337,86 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   structure (Katz, distance) separates classes easily, so it overstates structural features
   relative to their value on the `hard` protocol. The ablation, not gain importance, is the
   evidence for which family matters.
+
+## 2026-10-14 — Activity-matched evaluation is standard for every model
+- **Decision (project owner):** every model is evaluated with two additional protocols, and
+  `hard_active` becomes the lead pair-level metric (`hard` is kept and labelled "includes activity"):
+  - `hard_active`: distance-2 positives vs activity-matched hard negatives (ROC-AUC, AP).
+  - `rank_hard_active`: for each distance-2 positive (u, v), up to 100 candidates (u, w) with w a UTS
+    author at distance exactly 2 from u who published in the prediction year and is not a
+    prediction-year collaborator of u; same small-candidate strata as `rank_hard`.
+- **Justification (Phase 4 finding):** only ~18% of hard negatives have both authors publishing in
+  the prediction year, while every positive does. Activity features let a model separate classes by
+  predicting who keeps publishing; against activity-matched negatives LightGBM's gain over
+  Adamic-Adar shrank from +0.125 to +0.042 ROC-AUC and the temporal family's gain vanished.
+- **Construction** (`splits.py`): "active" = at least one work (any size) in the prediction window.
+  `neg_hard_active` is sampled 1:1 against distance-2 positives from the full eligible pool
+  (unconnected UTS–UTS pairs at distance exactly 2, both active, no joint work in the window);
+  `ranking_hard_active` restricts each head's distance-2 pool to active authors. New independent
+  seed streams (indices 6–8 of `SeedSequence([seed, split]).spawn(9)`), so all earlier pair sets
+  are unchanged (split summary CSVs byte-identical).
+- **Activity is used only to select evaluation pairs** (and, on the train split, training labels for
+  the pair-focused model) — never as a model input. Enforced by tests: the node and edge tables
+  have whitelisted columns; nodes, edges and adjacency are identical when every work in or after the
+  cutoff is deleted; every pair feature is invariant to the same deletion. Mutation-checked
+  (one-sided activity, unfiltered candidates, wrong activity year, activity written into the node
+  table, unseeded sampling).
+- **Sizes:** ~3.1–3.5k UTS authors are active per window; about half of the rank_hard_active queries
+  have fewer than 100 eligible candidates (reported as the `partial_candidates` stratum).
+
+## 2026-10-14 — Pair-focused LightGBM
+- **Decision:** LightGBM with the Phase 4 features and search grid, trained on all train-split
+  positives vs activity-matched hard negatives from the 2023 window (`train_pool_hard_active`,
+  ratio 1:3 as the chosen general mix), early stopping on validation `hard_active` AP, selected by
+  validation `hard_active` ROC-AUC.
+- **Why legitimate:** 2023 activity is used to choose training labels on the training window, which
+  precedes the validation cutoff (2024); features are still computed from works before 2023.
+- **Note:** the Phase 4 negative-mix rule (selected on `hard`) is kept unchanged for the general
+  models and node2vec, so earlier selections stay comparable.
+
+## 2026-10-14 — node2vec (Phase 5)
+- **Embeddings** per split from that split's input graph only (binary adjacency), dimension 128,
+  walk length 20, context 10, 10 walks per node, 1 negative sample. **One epoch** (one SGD pass over
+  10 walks per node, as in the original node2vec protocol), chosen for compute: ~100 s per epoch on
+  the 75k–100k-node graphs; 5 epochs would have made the 33 trainings take over 5 hours.
+- **Cross-split alignment:** each split's embedding is defined only up to rotation, so a classifier
+  fitted on train pairs cannot be applied to raw val/test embeddings. Val/test embeddings are mapped
+  into the train embedding's space with orthogonal Procrustes on authors with co-authors in both
+  graphs (pre-cutoff data only). *Alternatives:* warm-starting later graphs from earlier embeddings;
+  fitting the classifier on each split's own labels (not allowed: those are evaluation labels).
+  `node2vec_cosine` (raw within-split cosine, no alignment, no classifier) is reported as a check.
+- **Selection:** negative mix per (p, q, operator) by the Phase 4 rule; then p, q ∈ {0.5, 1, 2} and
+  operator ∈ {Hadamard, average, L1, L2} by validation `hard_active` ROC-AUC (seed 0).
+- **Reproducibility fix:** torch-cluster's biased walks (p or q ≠ 1) draw from the C library's
+  `rand()`, which `torch.manual_seed` does not seed; biased runs were not reproducible. The trainer
+  now also calls `srand(seed)`; verified deterministic with 4 threads on 200k walks; a test fails if
+  the call is removed. Consistent with rule 2 (all randomness from the config seed).
+- **node2vec as extra features:** the chosen operator's 128 dimensions plus the raw cosine are added
+  to the better of the general / pair-focused LightGBM (chosen on validation `hard_active`), same
+  settings and seeds.
+
+## 2026-10-14 — node2vec learning rate (unsupervised check)
+- **Problem:** a dry run gave node2vec rank_random MRR ≈ 0.16 — far below common neighbours — which
+  pointed to barely trained embeddings rather than a weak method. PyG initialises embeddings from
+  N(0, 1); with lr 0.01 and one epoch they hardly move.
+- **Check** (`scripts/node2vec_quality.py` → `report/node2vec/quality.csv`): on the TRAIN input graph
+  only, ROC-AUC of embedding cosine for 20k existing edges vs 20k random pairs (no labels, no
+  validation data): lr 0.01 / 1 epoch 0.868; lr 0.05 / 1 epoch 0.997; lr 0.1 / 1 epoch 0.996;
+  lr 0.01 / 3 epochs 0.987 (3.5× the time).
+- **Decision:** lr 0.05, 1 epoch. The embedding cache key now includes every training
+  hyperparameter, and the old cache was deleted, so no stale embeddings are reused.
+
+## 2026-10-14 — Phase 5 findings (for the record; numbers in results/*.csv)
+- **Pair-focused LightGBM** is the best model on `hard_active` (test 0.813 vs general LightGBM 0.738
+  and Adamic-Adar 0.706; +0.107 over AA, 5/5 seeds) and `rank_hard_active`, but it **collapses
+  outside the distance-2 setting** (rank_random MRR 0.043, random ROC-AUC 0.229 — below chance):
+  every training negative shared a co-author, so it learned that sharing one signals *no* link.
+  It is a within-friend-of-friend ranker, not a general recommender; report it that way.
+- **General models on `hard_active`:** logistic regression (0.752) beats the general LightGBM
+  (0.738); both beat AA significantly on `hard_active`; LightGBM's `rank_hard_active` gain over AA
+  is not robust (1/5 seeds). Jaccard becomes the validation-best heuristic on `rank_hard_active`.
+- **node2vec** loses to Adamic-Adar on every pair-level protocol (hard_active 0.575 with the aligned
+  classifier; 0.615 with raw cosine). Raw cosine beats the aligned classifier everywhere, so the
+  Procrustes + logistic-regression pipeline loses information; cosine is the fairer node2vec number.
+  p and q barely matter (validation cosine 0.642–0.647 across the 3 × 3 grid). Adding node2vec to
+  the pair-focused LightGBM does not help on `hard_active` (−0.003, worse in 3/5 seeds).

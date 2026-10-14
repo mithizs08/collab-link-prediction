@@ -149,9 +149,17 @@ def _ordered(rk: pd.DataFrame) -> pd.DataFrame:
 
 
 def _all_negatives(sp_) -> pd.DataFrame:
-    pools = [sp_[k][["author_u", "author_v"]] for k in ("train_pool_random", "train_pool_hard") if k in sp_]
+    pools = [sp_[k][["author_u", "author_v"]] for k in ("train_pool_random", "train_pool_hard",
+                                                         "train_pool_hard_active") if k in sp_]
     return pd.concat([sp_["neg_random"][["author_u", "author_v"]], sp_["neg_hard"][["author_u", "author_v"]],
-                      _ordered(sp_["ranking"]), _ordered(sp_["ranking_hard"]), *pools])
+                      sp_["neg_hard_active"][["author_u", "author_v"]],
+                      _ordered(sp_["ranking"]), _ordered(sp_["ranking_hard"]), _ordered(sp_["ranking_hard_active"]),
+                      *pools])
+
+
+def _active(t, cutoff, window_end) -> set:
+    a = t["auth"]
+    return set(a.loc[a["year"].between(cutoff, window_end), "author_id"])
 
 
 def _neighbours(sp_) -> dict:
@@ -206,12 +214,13 @@ def test_all_pairs_are_uts_authors_in_input_graph(bundle, name):
     uts = _uts_before(t, cutoff)
     in_graph = _authors_before(t, cutoff)
     allowed = uts & in_graph
-    for key in ("positives", "neg_random", "neg_hard", "train_pool_random", "train_pool_hard"):
+    for key in ("positives", "neg_random", "neg_hard", "neg_hard_active", "train_pool_random", "train_pool_hard",
+                "train_pool_hard_active"):
         if key not in sp_:
             continue
         ids = set(sp_[key]["author_u"]) | set(sp_[key]["author_v"])
         assert ids <= allowed, f"{key} uses non-UTS or out-of-graph authors"
-    for key in ("ranking", "ranking_hard"):
+    for key in ("ranking", "ranking_hard", "ranking_hard_active"):
         rk = sp_[key]
         assert set(rk["head"]) | set(rk["cand"]) <= allowed, f"{key} uses non-UTS or out-of-graph authors"
 
@@ -232,7 +241,8 @@ def test_negatives_unconnected_and_not_window_collaborations(bundle, name):
 def test_hard_negatives_at_distance_exactly_two(bundle, name):
     sp_ = bundle["splits"][name]
     nbrs = _neighbours(sp_)
-    hard = pd.concat([sp_[k] for k in ("neg_hard", "train_pool_hard") if k in sp_])
+    hard = pd.concat([sp_[k] for k in ("neg_hard", "neg_hard_active", "train_pool_hard", "train_pool_hard_active")
+                      if k in sp_])
     for u, v in zip(hard["author_u"], hard["author_v"]):
         nu, nv = nbrs.get(u, set()), nbrs.get(v, set())
         assert v not in nu                      # not distance 1
@@ -277,10 +287,27 @@ def test_positive_distance_column(bundle, name):
 
 
 @pytest.mark.parametrize("name", SPLITS)
-def test_rank_hard_candidates(bundle, name):
+def test_activity_matched_sets(bundle, name):
+    """Both authors of every activity-matched pair publish in the window; counts are 1:1 vs distance-2 positives."""
     t, sp_ = bundle["tables"], bundle["splits"][name]
     cutoff, window_end = _cut(bundle, name)
-    rk, pos = sp_["ranking_hard"], sp_["positives"]
+    active = _active(t, cutoff, window_end)
+    for key in ("neg_hard_active", "train_pool_hard_active"):
+        if key in sp_:
+            df = sp_[key]
+            assert df["author_u"].isin(active).all() and df["author_v"].isin(active).all(), key
+            assert not df.duplicated(["author_u", "author_v"]).any()
+    n_d2 = int((sp_["positives"]["distance"] == 2).sum())
+    assert len(sp_["neg_hard_active"]) == min(n_d2, sp_["stats"]["hard_active_pool"])
+    assert sp_["ranking_hard_active"]["cand"].isin(active).all()
+
+
+@pytest.mark.parametrize("name", SPLITS)
+@pytest.mark.parametrize("table", ["ranking_hard", "ranking_hard_active"])
+def test_rank_hard_candidates(bundle, name, table):
+    t, sp_ = bundle["tables"], bundle["splits"][name]
+    cutoff, window_end = _cut(bundle, name)
+    rk, pos = sp_[table], sp_["positives"]
     k = bundle["cfg"]["negatives"]["ranking_candidates"]
     nbrs = _neighbours(sp_)
     window = _window_collab(t, cutoff, window_end)
@@ -288,7 +315,8 @@ def test_rank_hard_candidates(bundle, name):
     d2 = set(np.flatnonzero((pos["distance"] == 2).values))
     q = set(rk["query_id"])
     assert q <= d2
-    assert len(d2 - q) == sp_["stats"]["rank_hard_no_candidates"]
+    stat = "rank_hard_no_candidates" if table == "ranking_hard" else "rank_hard_active_no_candidates"
+    assert len(d2 - q) == sp_["stats"][stat]
     assert (rk["head"].values == pos["author_u"].values[rk["query_id"]]).all()
     per_q = rk.groupby("query_id")["cand"]
     assert (per_q.size() <= k).all() and (per_q.nunique() == per_q.size()).all()
@@ -297,6 +325,42 @@ def test_rank_hard_candidates(bundle, name):
         assert w not in nbrs.get(h, set())                       # not connected
         assert nbrs.get(h, set()) & nbrs.get(w, set())           # distance exactly 2
         assert (min(h, w), max(h, w)) not in window              # no joint work in the window
+
+
+# ---------------------------------------------------------------- model inputs never see the window
+
+NODE_COLUMNS = ["node_idx", "author_id", "is_uts", "n_works_before", "degree"]
+EDGE_COLUMNS = ["u_idx", "v_idx", "author_u", "author_v", "weight", "first_year", "last_year"]
+
+
+@pytest.mark.parametrize("name", SPLITS)
+def test_model_input_columns_whitelisted(bundle, name):
+    """Model inputs (nodes, graph_edges, adjacency) carry no window information such as activity."""
+    sp_ = bundle["splits"][name]
+    assert list(sp_["nodes"].columns) == NODE_COLUMNS
+    assert list(sp_["graph_edges"].columns) == EDGE_COLUMNS
+
+
+@pytest.mark.parametrize("name", SPLITS)
+def test_model_inputs_identical_without_window_or_future(bundle, name):
+    """Deleting every work in or after the cutoff leaves nodes, edges and adjacency unchanged.
+
+    Together with tests/test_features.py (same check for every pair feature) this asserts that
+    no model input reads prediction-year data.
+    """
+    from linkpred.data.splits import build_input_graph
+
+    t = bundle["tables"]
+    cutoff, _ = _cut(bundle, name)
+    past = {k: (df[df["year"] < cutoff] if "year" in df.columns else df) for k, df in t.items()}
+    n1, g1, A1 = build_input_graph(t, cutoff)
+    n2, g2, A2 = build_input_graph(past, cutoff)
+    pd.testing.assert_frame_equal(n1, n2)
+    pd.testing.assert_frame_equal(g1.reset_index(drop=True), g2.reset_index(drop=True))
+    assert (A1 != A2).nnz == 0
+    saved = bundle["splits"][name]
+    pd.testing.assert_frame_equal(n1.reset_index(drop=True), saved["nodes"].reset_index(drop=True), check_dtype=False)
+    assert (A1 != saved["A"]).nnz == 0
 
 
 # ---------------------------------------------------------------- reproducibility
@@ -311,11 +375,14 @@ def _run_train(cfg, t, seed):
 def test_same_seed_reproduces_synthetic(synthetic):
     cfg, t = synthetic["cfg"], synthetic["tables"]
     a, b = _run_train(cfg, t, 7), _run_train(cfg, t, 7)
-    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard"):
+    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard", "neg_hard_active",
+                "ranking_hard_active", "train_pool_hard_active"):
         pd.testing.assert_frame_equal(a[key], b[key])
     c = _run_train(cfg, t, 8)
     assert not (a["neg_random"].equals(c["neg_random"]) and a["ranking"].equals(c["ranking"]))
     assert not a["ranking_hard"].equals(c["ranking_hard"])
+    assert not a["neg_hard_active"].equals(c["neg_hard_active"])
+    assert not a["ranking_hard_active"].equals(c["ranking_hard_active"])
 
 
 def test_saved_splits_reproduce_from_config_seed(bundle):
@@ -323,7 +390,8 @@ def test_saved_splits_reproduce_from_config_seed(bundle):
     cfg, t = bundle["cfg"], bundle["tables"]
     fresh = _run_train(cfg, t, cfg["seed"])
     saved = bundle["splits"]["train"]
-    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard", "train_pool_random", "train_pool_hard"):
+    for key in ("positives", "neg_random", "neg_hard", "ranking", "ranking_hard", "train_pool_random", "train_pool_hard",
+                "neg_hard_active", "ranking_hard_active", "train_pool_hard_active"):
         pd.testing.assert_frame_equal(fresh[key].reset_index(drop=True), saved[key].reset_index(drop=True),
                                       check_dtype=False)
 
@@ -346,3 +414,5 @@ def test_synthetic_fixture_covers_edge_cases(synthetic):
     for name in SPLITS:                       # rank_hard tests must not pass vacuously
         st = synthetic["splits"][name]["stats"]
         assert st["rank_hard_queries"] > 0 and st["rank_hard_rows"] > 0
+        assert st["neg_hard_active"] > 0 and st["rank_hard_active_rows"] > 0
+    assert len(tr["train_pool_hard_active"]) > 0

@@ -39,15 +39,19 @@ def chosen_settings(cfg):
     res = Path(cfg["paths"]["results"])
     grid = pd.read_csv(res / "negative_mix_grid.csv").to_dict("records")
     mix = select_mix(grid, "lightgbm")[0]
-    s = pd.read_csv(res / "lgbm_search.csv")
-    best = s[s.metric == "roc_auc"].assign(v=lambda d: d.value.round(6))
-    best = best.sort_values("v", ascending=False, kind="stable")["model"].iloc[0]
+    return mix, search_best(cfg, "lightgbm")
+
+
+def search_best(cfg, prefix: str) -> dict:
+    """Best search config for a model family (`lightgbm` or `lightgbm_pair_focused`), first in grid order on ties."""
+    s = pd.read_csv(Path(cfg["paths"]["results"]) / "lgbm_search.csv")
+    s = s[(s.metric == "roc_auc") & s.model.str.startswith(prefix + "|")].assign(v=lambda d: d.value.round(6))
+    best = s.sort_values("v", ascending=False, kind="stable")["model"].iloc[0]
     kv = dict(x.split("=") for x in best.split("|")[1:])
     lcfg = cfg["models"]["lightgbm"]
-    params = {"learning_rate": float(kv["lr"]), "num_leaves": int(kv["leaves"]),
-              "min_child_samples": int(kv["min_child"]), "subsample": lcfg["subsample"],
-              "colsample_bytree": lcfg["colsample_bytree"]}
-    return mix, params
+    return {"learning_rate": float(kv["lr"]), "num_leaves": int(kv["leaves"]),
+            "min_child_samples": int(kv["min_child"]), "subsample": lcfg["subsample"],
+            "colsample_bytree": lcfg["colsample_bytree"]}
 
 
 def main():
@@ -115,11 +119,12 @@ def regenerate_report(cfg, mix, params):
     grid = pd.read_csv(res / "negative_mix_grid.csv").to_dict("records")
     base = pd.read_csv(res / "baselines.csv")
     val_best = {}
-    for p in ("hard", "rank_hard", "rank_random", "random"):
+    for p in ("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random"):
         subset, metric = report.HEADLINE[p]
         d = base[(base.split == "val") & (base.protocol == p) & (base.subset == subset) & (base.metric == metric)]
         val_best[p] = d.sort_values(["value", "model"], ascending=[False, True])["model"].iloc[0]
-    write_feature_report(cfg, {"logreg": select_mix(grid, "logreg")[0], "lightgbm": mix}, params, val_best)
+    write_feature_report(cfg, {"logreg": select_mix(grid, "logreg")[0], "lightgbm": mix}, params, val_best,
+                         search_best(cfg, "lightgbm_pair_focused"))
 
 
 if __name__ == "__main__":

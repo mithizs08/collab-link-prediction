@@ -12,6 +12,7 @@ predict which author pairs co-author for the first time in the following window.
 - `src/linkpred/data/` — `build.py` (raw OpenAlex → `data/processed/*.parquet`), `audit.py` (→ `report/data_audit/`, `figures/audit_*`, `docs/data_audit.md`), `fetch_openalex.py` (optional re-pull), `splits.py` (→ `data/processed/splits/<split>/`, format in `docs/splits.md`; load with `splits.load_split`)
 - `src/linkpred/eval/` — `metrics.py` (tie rules), `protocols.py`, `bootstrap.py`, `report.py`; `src/linkpred/models/heuristics.py`; `scripts/run_baselines.py` → `results/baselines.*`
 - `src/linkpred/features/` — `embed.py` (cached work embeddings, `data/interim/embeddings`), `pair_features.py` (FeatureContext: the only time filter), `build.py` (→ `data/processed/features/<split>.parquet`); `src/linkpred/models/feature_models.py`; `scripts/run_feature_models.py` → `results/feature_models.*`, `ablation.csv`
+- `src/linkpred/models/node2vec.py` (embeddings, Procrustes alignment, operators); `scripts/run_node2vec.py` → `results/node2vec.*`; embeddings cached in `data/interim/node2vec`
 - `data/processed/authors.parquet` aggregates all years: descriptive only, never a feature (rule 1)
 - `configs/default.yaml` — all paths, split years, sampling ratios, seeds, hyperparameters
 - `data/{raw,interim,processed}` — git-ignored
@@ -41,7 +42,9 @@ predict which author pairs co-author for the first time in the following window.
    `docs/decisions.md`, one dated entry per decision (format: date, decision, alternatives,
    reason).
 7. **Same protocols for every model.** Evaluate with `linkpred.eval.protocols.evaluate` on the
-   saved split pairs: `hard` (distance-2 positives vs hard negatives) is the headline;
-   `rank_hard`, `rank_random`, `random` are secondary; `diagnostic_all_vs_hard` goes only in an
-   appendix with its warning. Never feed shortest-path distance to a model without checking it
+   saved split pairs: `hard_active` (distance-2 positives vs activity-matched hard negatives) is the
+   lead pair-level metric, with `rank_hard_active`; `hard` / `rank_hard` are reported as
+   "includes activity"; `rank_random`, `random` are secondary; `diagnostic_all_vs_hard` goes only in
+   an appendix with its warning. Prediction-year activity may select evaluation pairs or training
+   labels, never model inputs. Never feed shortest-path distance to a model without checking it
    against the `hard` protocol (see decisions.md, "Evaluation protocols").

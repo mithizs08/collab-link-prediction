@@ -1,0 +1,4 @@
+split,active_uts_nodes,hard_active_pool,neg_hard_active,rank_hard_active_queries,rank_hard_active_full,rank_hard_active_partial,rank_hard_active_no_candidates,rank_hard_active_median_candidates,rank_hard_active_rows
+train,3118,104933,1343,1343,685,657,1,100.0,101689
+val,3300,127941,1432,1432,752,679,1,100.0,110687
+test,3450,141009,1684,1684,895,787,2,100.0,130245

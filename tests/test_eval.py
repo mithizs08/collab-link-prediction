@@ -26,7 +26,7 @@ def split():
     rkh = pd.DataFrame({"query_id": np.repeat(d2, counts), "head_idx": np.repeat(pos["u_idx"].values[d2], counts),
                         "cand_idx": rng.integers(n, 2 * n, counts.sum())})
     return {"A": sp.csr_matrix((n, n)), "positives": pos, "neg_random": neg(30), "neg_hard": neg(30),
-            "ranking": rk, "ranking_hard": rkh}
+            "neg_hard_active": neg(12), "ranking": rk, "ranking_hard": rkh, "ranking_hard_active": rkh.copy()}
 
 
 POS_TAG = 1000.0
@@ -48,7 +48,7 @@ def run(score_fn, split, k_full=10):
     s = P.PairScores(score_fn, split)
     for p in PROTOCOL_ORDER:
         fn = P.PROTOCOLS[p]
-        r, x = fn(s, split, ctx, 50, k_full) if p == "rank_hard" else fn(s, split, ctx, 50)
+        r, x = fn(s, split, ctx, 50, k_full) if p in P.RANK_HARD_LIKE else fn(s, split, ctx, 50)
         rows += r
         raw[p] = x
     return pd.DataFrame(rows), raw
@@ -94,6 +94,14 @@ def test_constant_scorer_is_chance(split):
     assert _val(df, "rank_hard", "partial_candidates", "mrr") == pytest.approx(np.mean(1 / np.arange(1, 6)))
 
 
+def test_active_protocols(split):
+    df, _ = run(oracle(split), split)
+    assert _val(df, "hard_active", "all", "roc_auc") == 1.0
+    assert _val(df, "hard_active", "all", "n_negatives") == 12
+    assert _val(df, "rank_hard_active", "full_candidates", "mrr") == 1.0
+    assert set(df[df.protocol == "hard_active"].negative_type) == {"hard_active"}
+
+
 def test_rank_hard_strata_counts(split):
     df, _ = run(oracle(split), split)
     n_d2 = int((split["positives"]["distance"] == 2).sum())
@@ -110,7 +118,7 @@ def test_scores_computed_once_per_pair_set(split):
         calls.append(len(u))
         return np.zeros(len(u))
     evaluate(f, split, "val", "m", 0, 0, n_boot=0)
-    assert len(calls) == 5          # positives, neg_hard, neg_random, ranking, ranking_hard
+    assert len(calls) == 7          # positives, 3 negative sets, ranking, ranking_hard, ranking_hard_active
 
 
 def test_bad_scores_rejected(split):

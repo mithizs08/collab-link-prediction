@@ -32,9 +32,16 @@ Decisions behind the design are in `docs/decisions.md`; leakage guarantees are e
 - **Hard ranking candidates (`rank_hard`):** for each distance-2 positive (u, v), up to 100 distinct
   (u, w): w a UTS author at distance exactly 2 from u, unconnected to u, no joint work with u in the
   prediction year. Fewer than 100 when fewer exist; see the table below and `docs/decisions.md`.
+- **Activity-matched sets (`hard_active`, `rank_hard_active`):** `neg_hard_active` = hard negatives
+  whose two authors both have at least one work in the prediction year, 1:1 against distance-2
+  positives from the full eligible pool; `ranking_hard_active` = rank_hard candidates restricted to
+  authors active in the prediction year. **Prediction-year activity is used only to select
+  evaluation pairs (and training labels on the train split), never as a model input**; the
+  node/edge tables carry no activity column (enforced in `tests/test_leakage.py`).
 - **Randomness:** one independent numpy stream per sampler per split, derived from `seed` in the
-  config (`SeedSequence([seed, split_index]).spawn(4)`: random negatives, hard negatives, ranking,
-  hard ranking). Negatives are a fixed evaluation set; the
+  config (`SeedSequence([seed, split_index]).spawn(9)`: random negatives, hard negatives, ranking,
+  hard ranking, two training pools, hard_active negatives, hard_active ranking, active training pool;
+  appending streams never changes earlier ones). Negatives are a fixed evaluation set; the
   five model seeds vary model training, not these files.
 
 ## Files (`data/processed/splits/<split>/`)
@@ -49,6 +56,9 @@ Decisions behind the design are in `docs/decisions.md`; leakage guarantees are e
 | `neg_hard.parquet` | same + `n_common` (common neighbours in the input graph) |
 | `ranking.parquet` | `query_id` (row in positives), `head_idx, head, cand_idx, cand` |
 | `ranking_hard.parquet` | same columns; distance-2 positives only |
+| `neg_hard_active.parquet` | like `neg_hard`, both authors active in the prediction year |
+| `ranking_hard_active.parquet` | like `ranking_hard`, candidates active in the prediction year |
+| `train_pool_*.parquet` | train split only: shuffled training-negative pools (random, hard, hard_active) |
 | `meta.json` | all counts below, the seed, distance and cold-start diagnostics |
 
 Node indices are per split; `author_id` is the stable key across splits.
@@ -100,6 +110,15 @@ One query per distance-2 positive; up to 100 candidates at distance 2 from the h
 | train | 1,343 | 1,049 | 293 | 1 | 100 | 121,055 |
 | val | 1,432 | 1,152 | 280 | 0 | 100 | 131,250 |
 | test | 1,684 | 1,377 | 307 | 0 | 100 | 153,031 |
+
+## Activity-matched sets (hard_active / rank_hard_active protocols)
+Active = at least one work in the prediction window. This window information selects evaluation pairs only (and training labels on the train split); it is never a model input. `neg_hard_active` is 1:1 against distance-2 positives, drawn from `hard_active_pool`.
+
+| split | active_uts_nodes | hard_active_pool | neg_hard_active | rank_hard_active_queries | rank_hard_active_full | rank_hard_active_partial | rank_hard_active_no_candidates | rank_hard_active_median_candidates | rank_hard_active_rows |
+|---|---|---|---|---|---|---|---|---|---|
+| train | 3,118 | 104,933 | 1,343 | 1,343 | 685 | 657 | 1 | 100 | 101,689 |
+| val | 3,300 | 127,941 | 1,432 | 1,432 | 752 | 679 | 1 | 100 | 110,687 |
+| test | 3,450 | 141,009 | 1,684 | 1,684 | 895 | 787 | 2 | 100 | 130,245 |
 
 ## Cold-start positives (an endpoint with ≤ 2 works before the cutoff)
 | split | positives | pos_cold_start_any | pos_cold_start_both | pos_with_isolated_endpoint | share_cold_start_any |

@@ -122,12 +122,16 @@ models:
     context_size: 10
     walks_per_node: 10
     num_negative_samples: 1
-    p: 1.0
-    q: 1.0
-    epochs: 5
-    lr: 0.01
-    batch_size: 128
-    classifier: logistic_regression   # on Hadamard product of endpoint embeddings
+    # One SGD pass over 10 walks per node, as in the original node2vec protocol (r = 10). Chosen
+    # for compute: ~100 s per epoch on the 75k-100k-node graphs on this laptop's CPU.
+    epochs: 1
+    # 0.01 under-trains in one epoch (PyG initialises embeddings N(0,1)): edge-vs-random cosine AUC on
+    # the TRAIN graph 0.868 at 0.01 vs 0.997 at 0.05 (unsupervised check, no labels; decisions.md).
+    lr: 0.05
+    batch_size: 256
+    p_grid: [0.5, 1, 2]      # chosen on validation hard_active ROC-AUC
+    q_grid: [0.5, 1, 2]
+    operators: [hadamard, average, l1, l2]
 
   graphsage:
     hidden_channels: 128

@@ -21,6 +21,11 @@ RANK_HARD_COLS = [
     "split", "rank_hard_queries", "rank_hard_full", "rank_hard_partial", "rank_hard_no_candidates",
     "rank_hard_median_candidates", "rank_hard_rows",
 ]
+ACTIVE_COLS = [
+    "split", "active_uts_nodes", "hard_active_pool", "neg_hard_active", "rank_hard_active_queries",
+    "rank_hard_active_full", "rank_hard_active_partial", "rank_hard_active_no_candidates",
+    "rank_hard_active_median_candidates", "rank_hard_active_rows",
+]
 COLD_COLS = [
     "split", "positives", "pos_cold_start_any", "pos_cold_start_both", "pos_with_isolated_endpoint",
 ]
@@ -41,6 +46,7 @@ def tables(stats: dict[str, dict]) -> dict[str, pd.DataFrame]:
                           "share_d2", "share_d3", "share_d4plus", "share_disconnected", "d1_or_less"]],
         "cold_start": cold,
         "rank_hard": df[RANK_HARD_COLS],
+        "activity_matched": df[ACTIVE_COLS],
         "distance_neg_random": dist_neg[["split", "pairs", "d2", "d3", "d4plus", "disconnected",
                                          "share_d2", "share_d3", "share_d4plus", "share_disconnected"]],
     }
@@ -82,6 +88,13 @@ def render(t: dict[str, pd.DataFrame], cold_max: int) -> str:
         "reported as a separate stratum.",
         "",
         _md_table(t["rank_hard"]),
+        "",
+        "## Activity-matched sets (hard_active / rank_hard_active protocols)",
+        "Active = at least one work in the prediction window. This window information selects evaluation "
+        "pairs only (and training labels on the train split); it is never a model input. `neg_hard_active` "
+        "is 1:1 against distance-2 positives, drawn from `hard_active_pool`.",
+        "",
+        _md_table(t["activity_matched"]),
         "",
         f"## Cold-start positives (an endpoint with ≤ {cold_max} works before the cutoff)",
         _md_table(t["cold_start"]),

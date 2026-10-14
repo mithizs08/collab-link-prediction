@@ -80,13 +80,18 @@ def write_report(cfg, models: list[str], beta: float) -> None:
     df = pd.read_csv(res_dir / "baselines.csv")
     paired = pd.read_csv(res_dir / "baselines_paired.csv")
     katz = pd.read_csv(res_dir / "katz_beta_selection.csv")
-    report.protocol_figure(df, "test", models, fig_dir / "baselines_protocols_test.png")
-    report.protocol_figure(df, "val", models, fig_dir / "baselines_protocols_val.png")
+    six = ("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random")
+    report.protocol_figure(df, "test", models, fig_dir / "baselines_protocols_test.png", protocols=six)
+    report.protocol_figure(df, "val", models, fig_dir / "baselines_protocols_val.png", protocols=six)
     report.breakdown_figure(df, "test", models, fig_dir / "baselines_random_breakdown_test.png")
 
     ranks = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_random"]] + ["mrr"]
     ranks_h = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_hard"]] + ["mrr"]
     sections = [
+        ("hard_active", "all", ["roc_auc", "average_precision"]),
+        ("rank_hard_active", "full_candidates", ranks_h + ["query_auc"]),
+        ("rank_hard_active", "partial_candidates", ranks_h + ["query_auc"]),
+        ("rank_hard_active", "all", ["query_auc"]),
         ("hard", "all", ["roc_auc", "average_precision"]),
         ("rank_hard", "full_candidates", ranks_h + ["query_auc"]),
         ("rank_hard", "partial_candidates", ranks_h + ["query_auc"]),
@@ -118,7 +123,9 @@ def write_report(cfg, models: list[str], beta: float) -> None:
         "ranking candidate has a common neighbour, so under `random` and `rank_random` these heuristics "
         "essentially test *whether a positive is at distance 2*; the stratum table below shows near-perfect "
         "separation at distance 2 and chance (all ties) beyond it. `hard` and `rank_hard` remove that "
-        "shortcut by comparing distance-2 pairs only, and are the numbers to compare models on.",
+        "shortcut by comparing distance-2 pairs only. `hard_active` / `rank_hard_active` further restrict "
+        "negatives to authors who publish in the prediction year, removing the activity shortcut (Phase 4); "
+        "they are the lead pair-level numbers.",
     ]
     for split in ("test", "val"):
         out += ["", f"## {split.capitalize()} split", ""]

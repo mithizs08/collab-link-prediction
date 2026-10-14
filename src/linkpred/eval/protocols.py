@@ -9,6 +9,9 @@ rank_hard               each distance-2 positive vs up to 100 candidates at dist
 random                  all positives vs random negatives (easy; for comparability with the literature).
 diagnostic_all_vs_hard  all positives vs hard negatives. APPENDIX ONLY: distance >= 3 identifies
                         positives perfectly here, so this measures an artefact of the design.
+hard_active             distance-2 positives vs hard negatives whose two authors both publish in the
+                        prediction year (activity-matched). LEAD pair-level metric from Phase 5 on.
+rank_hard_active        rank_hard with candidates restricted to authors active in the prediction year.
 
 A scoring function has the signature score_fn(split, u_idx, v_idx) -> np.ndarray, higher =
 more likely to collaborate, where `split` is the dict returned by splits.load_split and
@@ -28,7 +31,10 @@ from linkpred.eval import bootstrap as bs
 from linkpred.eval.metrics import average_precision, per_query_metrics, rank_counts, roc_auc
 
 ScoreFn = Callable[[dict, np.ndarray, np.ndarray], np.ndarray]
-PROTOCOL_ORDER = ("hard", "rank_random", "rank_hard", "random", "diagnostic_all_vs_hard")
+# Appended protocols go at the END: bootstrap streams are keyed by position, so existing
+# protocols keep identical resamples.
+PROTOCOL_ORDER = ("hard", "rank_random", "rank_hard", "random", "diagnostic_all_vs_hard",
+                  "hard_active", "rank_hard_active")
 SPLIT_INDEX = {"train": 0, "val": 1, "test": 2}
 RANK_KS = (20, 50, 100)          # rank_random
 RANK_KS_HARD = (10, 20, 50)      # rank_hard: Hits@100 is near-trivial with <= 101 items (Phase 3)
@@ -43,6 +49,8 @@ class PairScores:
         "neg_hard": ("neg_hard", "u_idx", "v_idx"),
         "ranking": ("ranking", "head_idx", "cand_idx"),
         "ranking_hard": ("ranking_hard", "head_idx", "cand_idx"),
+        "neg_hard_active": ("neg_hard_active", "u_idx", "v_idx"),
+        "ranking_hard_active": ("ranking_hard_active", "head_idx", "cand_idx"),
     }
 
     def __init__(self, score_fn: ScoreFn | None, split: dict, precomputed: dict | None = None):
@@ -155,7 +163,30 @@ def protocol_rank_random(scorer, split, ctx, n_boot=1000):
     return _ranking(ctx, "rank_random", "random", {"all": pq}, n_boot, {"all": metrics})
 
 
+def protocol_hard_active(scorer, split, ctx, n_boot=1000):
+    """Distance-2 positives vs hard negatives whose authors BOTH publish in the prediction year.
+
+    Removes the "is the author still active?" shortcut (Phase 4 finding). Activity selects the
+    evaluation negatives only; no model input contains it.
+    """
+    s = _scores(scorer, split)
+    pos_df = split["positives"]
+    d2 = (pos_df["distance"] == 2).values
+    pos, cold = s("positives"), pos_df["cold_start"].values
+    subsets = {"all": pos[d2], "cold_start": pos[d2 & cold], "established": pos[d2 & ~cold]}
+    return _classification(ctx, "hard_active", "hard_active", subsets, s("neg_hard_active"), n_boot)
+
+
+def protocol_rank_hard_active(scorer, split, ctx, n_boot=1000, k_full=100):
+    """rank_hard with candidates restricted to authors active in the prediction year."""
+    return _rank_hard_like(scorer, split, ctx, n_boot, k_full, "ranking_hard_active", "rank_hard_active", "hard_active")
+
+
 def protocol_rank_hard(scorer, split, ctx, n_boot=1000, k_full=100):
+    return _rank_hard_like(scorer, split, ctx, n_boot, k_full, "ranking_hard", "rank_hard", "hard")
+
+
+def _rank_hard_like(scorer, split, ctx, n_boot, k_full, table, protocol, neg_type):
     """Strata by candidate count; MRR / Hits@K are only comparable within a stratum.
 
     full_candidates     queries with exactly k_full candidates (headline rank_hard numbers)
@@ -164,7 +195,7 @@ def protocol_rank_hard(scorer, split, ctx, n_boot=1000, k_full=100):
     cold_start / established   all queries split by the positive's cold-start flag, query_auc only
     """
     s = _scores(scorer, split)
-    g, e, n = _per_query(s, split, "ranking_hard")
+    g, e, n = _per_query(s, split, table)
     has = n > 0
     pq = per_query_metrics(g, e, np.maximum(n, 1), RANK_KS_HARD)
     take = lambda m: {k: v[m] for k, v in pq.items()}
@@ -174,7 +205,7 @@ def protocol_rank_hard(scorer, split, ctx, n_boot=1000, k_full=100):
     subsets = {"full_candidates": take(full), "partial_candidates": take(partial), "all": take(has),
                "cold_start": take(has & cold), "established": take(has & ~cold)}
     qa = ["query_auc"]
-    return _ranking(ctx, "rank_hard", "hard", subsets, n_boot,
+    return _ranking(ctx, protocol, neg_type, subsets, n_boot,
                     {"full_candidates": metrics, "partial_candidates": metrics, "all": qa,
                      "cold_start": qa, "established": qa})
 
@@ -185,7 +216,10 @@ PROTOCOLS = {
     "rank_hard": protocol_rank_hard,
     "random": protocol_random,
     "diagnostic_all_vs_hard": protocol_diagnostic_all_vs_hard,
+    "hard_active": protocol_hard_active,
+    "rank_hard_active": protocol_rank_hard_active,
 }
+RANK_HARD_LIKE = {"rank_hard", "rank_hard_active"}
 
 
 def evaluate(score_fn: ScoreFn | None, split: dict, split_name: str, model: str, seed: int, boot_seed: int,
@@ -199,7 +233,7 @@ def evaluate(score_fn: ScoreFn | None, split: dict, split_name: str, model: str,
     rows, raw = [], {}
     for p in protocols:
         fn = PROTOCOLS[p]
-        r, x = fn(s, split, ctx, n_boot, k_full) if p == "rank_hard" else fn(s, split, ctx, n_boot)
+        r, x = fn(s, split, ctx, n_boot, k_full) if p in RANK_HARD_LIKE else fn(s, split, ctx, n_boot)
         rows.extend(r)
         raw[p] = x
     return rows, raw

@@ -6,9 +6,53 @@ Truncated Katz uses beta = 0.005, chosen on validation (hard protocol, ROC-AUC);
 
 Ranking metrics use expected ranks under random tie-breaking (see `linkpred.eval.metrics`). A random ranker scores MRR ≈ 0.051 with 100 candidates; query_auc 0.5.
 
-**Reading guide.** Neighbourhood heuristics (CN, Jaccard, Adamic-Adar, resource allocation) score every pair without a common neighbour exactly 0. Almost no random negative or random ranking candidate has a common neighbour, so under `random` and `rank_random` these heuristics essentially test *whether a positive is at distance 2*; the stratum table below shows near-perfect separation at distance 2 and chance (all ties) beyond it. `hard` and `rank_hard` remove that shortcut by comparing distance-2 pairs only, and are the numbers to compare models on.
+**Reading guide.** Neighbourhood heuristics (CN, Jaccard, Adamic-Adar, resource allocation) score every pair without a common neighbour exactly 0. Almost no random negative or random ranking candidate has a common neighbour, so under `random` and `rank_random` these heuristics essentially test *whether a positive is at distance 2*; the stratum table below shows near-perfect separation at distance 2 and chance (all ties) beyond it. `hard` and `rank_hard` remove that shortcut by comparing distance-2 pairs only. `hard_active` / `rank_hard_active` further restrict negatives to authors who publish in the prediction year, removing the activity shortcut (Phase 4); they are the lead pair-level numbers.
 
 ## Test split
+
+### hard_active — all (n = 1,684)
+
+| model | roc_auc | average_precision |
+|---|---|---|
+| common_neighbors | 0.689 [0.672, 0.705] | 0.663 [0.644, 0.683] |
+| jaccard | 0.725 [0.707, 0.741] | 0.724 [0.704, 0.742] |
+| adamic_adar | 0.706 [0.688, 0.722] | 0.706 [0.687, 0.727] |
+| resource_allocation | 0.692 [0.674, 0.708] | 0.698 [0.678, 0.718] |
+| preferential_attachment | 0.367 [0.348, 0.386] | 0.423 [0.411, 0.437] |
+| katz | 0.674 [0.656, 0.691] | 0.681 [0.660, 0.702] |
+
+### rank_hard_active — full_candidates (n = 895)
+
+| model | hits@10 | hits@20 | hits@50 | mrr | query_auc |
+|---|---|---|---|---|---|
+| common_neighbors | 0.327 [0.297, 0.355] | 0.528 [0.499, 0.557] | 0.781 [0.758, 0.805] | 0.133 [0.120, 0.147] | 0.716 [0.698, 0.733] |
+| jaccard | 0.382 [0.352, 0.413] | 0.583 [0.549, 0.613] | 0.823 [0.797, 0.848] | 0.169 [0.152, 0.186] | 0.752 [0.736, 0.768] |
+| adamic_adar | 0.346 [0.314, 0.375] | 0.532 [0.500, 0.565] | 0.788 [0.760, 0.814] | 0.141 [0.126, 0.155] | 0.721 [0.702, 0.740] |
+| resource_allocation | 0.344 [0.313, 0.377] | 0.515 [0.486, 0.547] | 0.749 [0.719, 0.775] | 0.144 [0.129, 0.159] | 0.702 [0.683, 0.722] |
+| preferential_attachment | 0.061 [0.048, 0.078] | 0.142 [0.120, 0.165] | 0.363 [0.335, 0.395] | 0.039 [0.033, 0.047] | 0.401 [0.381, 0.421] |
+| katz | 0.322 [0.289, 0.352] | 0.530 [0.497, 0.561] | 0.781 [0.755, 0.807] | 0.129 [0.116, 0.143] | 0.717 [0.698, 0.735] |
+
+### rank_hard_active — partial_candidates (n = 787)
+
+| model | hits@10 | hits@20 | hits@50 | mrr | query_auc |
+|---|---|---|---|---|---|
+| common_neighbors | 0.519 [0.489, 0.550] | 0.703 [0.676, 0.730] | 0.927 [0.914, 0.940] | 0.235 [0.216, 0.255] | 0.678 [0.661, 0.695] |
+| jaccard | 0.528 [0.493, 0.562] | 0.719 [0.687, 0.750] | 0.947 [0.931, 0.962] | 0.276 [0.254, 0.299] | 0.717 [0.697, 0.738] |
+| adamic_adar | 0.543 [0.510, 0.575] | 0.711 [0.681, 0.740] | 0.927 [0.909, 0.944] | 0.249 [0.228, 0.271] | 0.682 [0.663, 0.702] |
+| resource_allocation | 0.525 [0.493, 0.559] | 0.706 [0.677, 0.736] | 0.922 [0.905, 0.939] | 0.248 [0.228, 0.271] | 0.672 [0.652, 0.692] |
+| preferential_attachment | 0.189 [0.163, 0.215] | 0.363 [0.331, 0.397] | 0.744 [0.713, 0.770] | 0.082 [0.072, 0.093] | 0.351 [0.332, 0.373] |
+| katz | 0.535 [0.502, 0.570] | 0.714 [0.681, 0.745] | 0.929 [0.913, 0.947] | 0.249 [0.228, 0.271] | 0.690 [0.671, 0.713] |
+
+### rank_hard_active — all (n = 1,682)
+
+| model | query_auc |
+|---|---|
+| common_neighbors | 0.698 [0.685, 0.710] |
+| jaccard | 0.736 [0.723, 0.748] |
+| adamic_adar | 0.703 [0.689, 0.716] |
+| resource_allocation | 0.688 [0.675, 0.702] |
+| preferential_attachment | 0.378 [0.363, 0.392] |
+| katz | 0.704 [0.690, 0.718] |
 
 ### hard — all (n = 1,684)
 
@@ -78,6 +122,50 @@ Ranking metrics use expected ranks under random tie-breaking (see `linkpred.eval
 
 
 ## Val split
+
+### hard_active — all (n = 1,432)
+
+| model | roc_auc | average_precision |
+|---|---|---|
+| common_neighbors | 0.712 [0.694, 0.731] | 0.683 [0.662, 0.703] |
+| jaccard | 0.727 [0.708, 0.746] | 0.739 [0.719, 0.758] |
+| adamic_adar | 0.730 [0.711, 0.749] | 0.725 [0.703, 0.747] |
+| resource_allocation | 0.712 [0.691, 0.730] | 0.715 [0.693, 0.735] |
+| preferential_attachment | 0.390 [0.369, 0.411] | 0.445 [0.430, 0.461] |
+| katz | 0.703 [0.683, 0.722] | 0.706 [0.683, 0.729] |
+
+### rank_hard_active — full_candidates (n = 752)
+
+| model | hits@10 | hits@20 | hits@50 | mrr | query_auc |
+|---|---|---|---|---|---|
+| common_neighbors | 0.384 [0.351, 0.416] | 0.566 [0.531, 0.599] | 0.802 [0.775, 0.827] | 0.162 [0.146, 0.181] | 0.738 [0.718, 0.756] |
+| jaccard | 0.416 [0.381, 0.452] | 0.588 [0.552, 0.622] | 0.842 [0.815, 0.868] | 0.186 [0.168, 0.205] | 0.766 [0.747, 0.783] |
+| adamic_adar | 0.394 [0.357, 0.425] | 0.592 [0.554, 0.627] | 0.822 [0.794, 0.849] | 0.167 [0.150, 0.185] | 0.752 [0.732, 0.770] |
+| resource_allocation | 0.386 [0.351, 0.417] | 0.546 [0.509, 0.582] | 0.804 [0.776, 0.831] | 0.172 [0.153, 0.192] | 0.740 [0.719, 0.758] |
+| preferential_attachment | 0.072 [0.055, 0.090] | 0.151 [0.126, 0.177] | 0.339 [0.303, 0.374] | 0.050 [0.040, 0.060] | 0.392 [0.369, 0.413] |
+| katz | 0.371 [0.336, 0.404] | 0.560 [0.523, 0.596] | 0.789 [0.757, 0.816] | 0.163 [0.146, 0.182] | 0.735 [0.713, 0.753] |
+
+### rank_hard_active — partial_candidates (n = 679)
+
+| model | hits@10 | hits@20 | hits@50 | mrr | query_auc |
+|---|---|---|---|---|---|
+| common_neighbors | 0.511 [0.476, 0.544] | 0.696 [0.665, 0.726] | 0.924 [0.908, 0.939] | 0.235 [0.215, 0.256] | 0.677 [0.658, 0.698] |
+| jaccard | 0.539 [0.505, 0.575] | 0.728 [0.696, 0.760] | 0.953 [0.937, 0.968] | 0.256 [0.232, 0.280] | 0.710 [0.690, 0.730] |
+| adamic_adar | 0.512 [0.475, 0.547] | 0.687 [0.652, 0.718] | 0.931 [0.912, 0.947] | 0.242 [0.221, 0.264] | 0.677 [0.654, 0.699] |
+| resource_allocation | 0.501 [0.464, 0.538] | 0.663 [0.629, 0.697] | 0.926 [0.906, 0.943] | 0.241 [0.220, 0.264] | 0.663 [0.640, 0.686] |
+| preferential_attachment | 0.191 [0.161, 0.220] | 0.389 [0.350, 0.423] | 0.727 [0.695, 0.762] | 0.088 [0.077, 0.101] | 0.380 [0.357, 0.404] |
+| katz | 0.518 [0.479, 0.555] | 0.715 [0.680, 0.750] | 0.927 [0.907, 0.946] | 0.241 [0.220, 0.262] | 0.691 [0.668, 0.714] |
+
+### rank_hard_active — all (n = 1,431)
+
+| model | query_auc |
+|---|---|
+| common_neighbors | 0.709 [0.695, 0.723] |
+| jaccard | 0.739 [0.725, 0.753] |
+| adamic_adar | 0.716 [0.702, 0.731] |
+| resource_allocation | 0.703 [0.688, 0.718] |
+| preferential_attachment | 0.386 [0.370, 0.404] |
+| katz | 0.714 [0.700, 0.729] |
 
 ### hard — all (n = 1,432)
 
@@ -200,6 +288,16 @@ Validation-best heuristic per protocol (by its headline metric) minus each other
 | diagnostic_all_vs_hard | all | roc_auc_diff | preferential_attachment - adamic_adar | 0.077 [0.057, 0.097] | 0.001 |
 | diagnostic_all_vs_hard | all | roc_auc_diff | preferential_attachment - resource_allocation | 0.090 [0.069, 0.110] | 0.001 |
 | diagnostic_all_vs_hard | all | roc_auc_diff | preferential_attachment - katz | 0.080 [0.062, 0.098] | 0.001 |
+| hard_active | all | roc_auc_diff | adamic_adar - common_neighbors | 0.016 [0.010, 0.024] | 0.001 |
+| hard_active | all | roc_auc_diff | adamic_adar - jaccard | -0.020 [-0.038, -0.002] | 0.034 |
+| hard_active | all | roc_auc_diff | adamic_adar - resource_allocation | 0.014 [0.006, 0.022] | 0.002 |
+| hard_active | all | roc_auc_diff | adamic_adar - preferential_attachment | 0.339 [0.318, 0.361] | 0.001 |
+| hard_active | all | roc_auc_diff | adamic_adar - katz | 0.031 [0.021, 0.043] | 0.001 |
+| rank_hard_active | full_candidates | mrr_diff | jaccard - common_neighbors | 0.036 [0.021, 0.050] | 0.001 |
+| rank_hard_active | full_candidates | mrr_diff | jaccard - adamic_adar | 0.028 [0.014, 0.043] | 0.001 |
+| rank_hard_active | full_candidates | mrr_diff | jaccard - resource_allocation | 0.024 [0.008, 0.040] | 0.002 |
+| rank_hard_active | full_candidates | mrr_diff | jaccard - preferential_attachment | 0.129 [0.111, 0.149] | 0.001 |
+| rank_hard_active | full_candidates | mrr_diff | jaccard - katz | 0.040 [0.023, 0.055] | 0.001 |
 
 ## Appendix: diagnostic_all_vs_hard
 

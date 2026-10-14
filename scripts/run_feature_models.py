@@ -41,7 +41,8 @@ from linkpred.models import feature_models as FM  # noqa: E402
 from linkpred.results import write_results  # noqa: E402
 
 log = logging.getLogger("feature_models")
-GRID_PROTOCOLS = ("hard", "rank_hard", "rank_random", "random")
+GRID_PROTOCOLS = ("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random")
+PAIR_PROTOCOLS = ("hard_active", "rank_hard_active", "hard", "rank_hard")
 ABLATIONS = {
     "structural": ["structural"], "temporal": ["temporal"], "text": ["text"],
     "structural+temporal": ["structural", "temporal"], "structural+text": ["structural", "text"],
@@ -76,11 +77,14 @@ class Experiment:
     def Xsets(self, split, columns):
         return {k: v[columns] for k, v in self.X[split].items()}
 
-    def fit(self, kind, columns, mix, seed, params=None, specialist=False):
-        X, y = FM.training_set(self.splits["train"], self.feat["train"], columns, mix[0], mix[1], specialist)
+    def fit(self, kind, columns, mix, seed, params=None, specialist=False, active=False):
+        """active=True: pair-focused model (activity-matched training negatives, early stopping on
+        validation hard_active AP). Otherwise early stopping on validation hard AP (Phase 4)."""
+        X, y = FM.training_set(self.splits["train"], self.feat["train"], columns, mix[0], mix[1], specialist, active)
         if kind == "logreg":
             return FM.fit_logreg(X, y, columns, seed)
-        Xv, yv = FM.hard_eval_set(self.splits["val"], self.Xsets("val", columns))
+        Xv, yv = FM.hard_eval_set(self.splits["val"], self.Xsets("val", columns),
+                                  "neg_hard_active" if active else "neg_hard")
         return FM.fit_lightgbm(X, y, Xv, yv, params, seed)
 
     def evaluate(self, model, columns, name, seed, split, n_boot, protocols=PROTOCOL_ORDER):
@@ -168,18 +172,34 @@ def main(argv=None):
         auc = headline(r, "val", "hard")
         if round(auc, 6) > round(best_auc, 6):
             best_auc, best_params = auc, p
+    # Pair-focused LightGBM: same grid, activity-matched training negatives (ratio of the chosen
+    # general mix), early stopping on val hard_active AP, selected by val hard_active ROC-AUC.
+    pf_params, pf_auc = None, -1
+    for nl, lr, mcs in itertools.product(sgrid["num_leaves"], sgrid["learning_rate"], sgrid["min_child_samples"]):
+        p = {**default, "num_leaves": nl, "learning_rate": lr, "min_child_samples": mcs}
+        m = E.fit("lightgbm", ALL_FEATURES, mix["lightgbm"], cfg["seed"], p, active=True)
+        name = f"lightgbm_pair_focused|leaves={nl}|lr={lr:g}|min_child={mcs}"
+        r, _ = E.evaluate(m, ALL_FEATURES, name, cfg["seed"], "val", 0, ("hard_active",))
+        r = [x for x in r if x["subset"] == "all"]
+        r.append({**r[0], "metric": "n_trees", "value": float(m.best_iteration_ or m.n_estimators)})
+        search_rows += r
+        auc = headline(r, "val", "hard_active")
+        if round(auc, 6) > round(pf_auc, 6):
+            pf_auc, pf_params = auc, p
     write_results(search_rows, res / "lgbm_search.csv", append=False)
-    log.info("search done: %s (val hard AUC %.4f)", best_params, best_auc)
+    log.info("search done: %s (val hard AUC %.4f); pair-focused %s (val hard_active AUC %.4f)",
+             best_params, best_auc, pf_params, pf_auc)
 
     # 3. final models -------------------------------------------------------------------
     final_rows, raw = [], {}
-    specs = {"logreg": ("logreg", mix["logreg"], None, False),
-             "lightgbm": ("lightgbm", mix["lightgbm"], best_params, False),
-             "lightgbm_d2_specialist": ("lightgbm", mix["lightgbm"], best_params, True)}
+    specs = {"logreg": ("logreg", mix["logreg"], None, False, False),
+             "lightgbm": ("lightgbm", mix["lightgbm"], best_params, False, False),
+             "lightgbm_d2_specialist": ("lightgbm", mix["lightgbm"], best_params, True, False),
+             "lightgbm_pair_focused": ("lightgbm", mix["lightgbm"], pf_params, False, True)}
     importances = []
-    for name, (kind, mx, params, spec) in specs.items():
+    for name, (kind, mx, params, spec, act) in specs.items():
         for s in seeds:
-            m = E.fit(kind, ALL_FEATURES, mx, s, params, spec)
+            m = E.fit(kind, ALL_FEATURES, mx, s, params, spec, act)
             if kind == "lightgbm":
                 importances.append(pd.DataFrame({"model": name, "seed": s, "feature": ALL_FEATURES,
                                                  "gain": m.booster_.feature_importance("gain")}))
@@ -207,13 +227,15 @@ def main(argv=None):
     for name in specs:
         for s in seeds:
             for p in GRID_PROTOCOLS:
-                neg_type = "random" if p in ("random", "rank_random") else "hard"
-                refs = {val_best[p]} | ({"adamic_adar"} if p in ("hard", "rank_hard") else set())
+                neg_type = {"random": "random", "rank_random": "random", "hard_active": "hard_active",
+                            "rank_hard_active": "hard_active"}.get(p, "hard")
+                refs = {val_best[p]} | ({"adamic_adar"} if p in PAIR_PROTOCOLS else set())
                 for h in sorted(refs):
                     prow += paired(cfg, raw[(name, s, "test")], href[h][1], p, name, h, s, neg_type)
-            for p in ("hard", "rank_hard"):
-                if name == "lightgbm_d2_specialist":
-                    prow += paired(cfg, raw[(name, s, "test")], raw[("lightgbm", s, "test")], p, name, "lightgbm", s, "hard")
+            for p in PAIR_PROTOCOLS:
+                nt = "hard_active" if p.endswith("active") else "hard"
+                if name in ("lightgbm_d2_specialist", "lightgbm_pair_focused"):
+                    prow += paired(cfg, raw[(name, s, "test")], raw[("lightgbm", s, "test")], p, name, "lightgbm", s, nt)
     write_results(prow, res / "feature_models_paired.csv", append=False)
     log.info("paired tests done (%.0fs)", time.time() - t0)
 
@@ -224,13 +246,13 @@ def main(argv=None):
         for s in seeds:
             m = E.fit("lightgbm", columns, mix["lightgbm"], s, best_params)
             for split in ("val", "test"):
-                r, _ = E.evaluate(m, columns, f"lightgbm[{label}]", s, split, E.n_boot, ("hard", "rank_hard"))
+                r, _ = E.evaluate(m, columns, f"lightgbm[{label}]", s, split, E.n_boot, PAIR_PROTOCOLS)
                 abl += r
         log.info("ablation %s (%.0fs)", label, time.time() - t0)
     write_results(abl, res / "ablation.csv", append=False)
 
     from linkpred.eval.feature_report import write_feature_report  # noqa: E402
-    write_feature_report(cfg, mix, best_params, val_best)
+    write_feature_report(cfg, mix, best_params, val_best, pf_params)
     log.info("done in %.0fs", time.time() - t0)
 
 

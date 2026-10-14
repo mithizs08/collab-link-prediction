@@ -14,7 +14,8 @@ import pandas as pd
 from linkpred.data.audit import GRID, INK, INK_2, SERIES, SURFACE
 from linkpred.eval import report
 
-FINAL = ["logreg", "lightgbm", "lightgbm_d2_specialist"]
+FINAL = ["logreg", "lightgbm", "lightgbm_d2_specialist", "lightgbm_pair_focused"]
+PAIR_PROTOCOLS = ("hard_active", "rank_hard_active", "hard", "rank_hard")
 ABL_ORDER = ["structural", "temporal", "text", "structural+temporal", "structural+text", "all"]
 
 
@@ -44,7 +45,7 @@ def heuristic_rows(base: pd.DataFrame, split, protocol, subset, metrics, models)
     return t
 
 
-def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict) -> None:
+def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict, pf_params: dict | None = None) -> None:
     res, figs = Path(cfg["paths"]["results"]), Path(cfg["paths"]["figures"])
     fm = pd.read_csv(res / "feature_models.csv")
     base = pd.read_csv(res / "baselines.csv")
@@ -65,7 +66,12 @@ def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict) -> 
            "`feature_models_paired.csv`, `negative_mix_grid.csv`, `lgbm_search.csv`, `ablation.csv`, "
            "`half_life_selection.csv`. Learned models: mean ± sd of the point estimate over 5 seeds "
            "(logistic regression is deterministic, so its sd is 0). Heuristic rows: point estimate "
-           "[bootstrap 95% CI] from `results/baselines.csv`._", ""]
+           "[bootstrap 95% CI] from `results/baselines.csv`._", "",
+           "**How to read this.** `hard_active` (distance-2 positives vs hard negatives whose two authors both "
+           "publish in the prediction year) is the lead pair-level metric: it asks *which pairs collaborate* "
+           "among people who are all still publishing. `hard` keeps negatives with inactive authors and therefore "
+           "*includes activity*: a model can score well on it by predicting who keeps publishing (Phase 4 finding, "
+           "docs/decisions.md). Activity is used only to select evaluation pairs, never as a model input.", ""]
 
     out += ["## Choices made on validation", "",
             f"- Negative mix: logistic regression **hard fraction {mix['logreg'][0]:g}, 1:{mix['logreg'][1]}**; "
@@ -74,10 +80,14 @@ def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict) -> 
             f"- LightGBM: num_leaves {params['num_leaves']}, learning_rate {params['learning_rate']:g}, "
             f"min_child_samples {params['min_child_samples']}, subsample {params['subsample']}, "
             f"colsample_bytree {params['colsample_bytree']}; early stopping on val hard AP.",
+            *([f"- Pair-focused LightGBM: training negatives = activity-matched hard negatives from the 2023 window "
+               f"(1:{mix['lightgbm'][1]}); num_leaves {pf_params['num_leaves']}, learning_rate {pf_params['learning_rate']:g}, "
+               f"min_child_samples {pf_params['min_child_samples']}; early stopping on val hard_active AP, "
+               "selected by val hard_active ROC-AUC."] if pf_params else []),
             f"- Recency half-life: {hl.sort_values('value', ascending=False)['model'].iloc[0].split('=')[1]} years "
             "(val hard ROC-AUC of recency-weighted Adamic-Adar alone).",
             "- Validation-best heuristic per protocol (paired-test reference): "
-            + ", ".join(f"{p}: {h}" for p, h in val_best.items()) + "; Adamic-Adar is also tested for hard and rank_hard.",
+            + ", ".join(f"{p}: {h}" for p, h in val_best.items()) + "; Adamic-Adar is also tested on the four pair-level protocols.",
             ""]
 
     out += ["## Embedding coverage (authors with ≥ 1 embedded work before the cutoff)", "",
@@ -89,7 +99,8 @@ def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict) -> 
     for m, d in grid.groupby("model", sort=False):
         get = lambda p, mt=None, sub=None: d[(d.protocol == p) & (d.subset == (sub or report.HEADLINE[p][0]))
                                             & (d.metric == (mt or report.HEADLINE[p][1]))]["value"].iloc[0]
-        rows.append({"model | mix": m, "hard ROC-AUC": f"{get('hard'):.4f}", "hard AP": f"{get('hard', 'average_precision'):.4f}",
+        rows.append({"model | mix": m, "hard_active ROC-AUC": f"{get('hard_active'):.4f}",
+                     "hard ROC-AUC": f"{get('hard'):.4f}", "hard AP": f"{get('hard', 'average_precision'):.4f}",
                      "rank_hard MRR": f"{get('rank_hard'):.4f}", "rank_random MRR": f"{get('rank_random'):.4f}",
                      "random ROC-AUC": f"{get('random'):.4f}"})
     out += [report.to_md(pd.DataFrame(rows)), ""]
@@ -101,18 +112,23 @@ def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict) -> 
 
     for split in ("test", "val"):
         out += [f"## Final models — {split}", ""]
-        sections = [("hard", "all", ["roc_auc", "average_precision"]),
+        sections = [("hard_active", "all", ["roc_auc", "average_precision"]),
+                    ("rank_hard_active", "full_candidates", ks_h + ["mrr", "query_auc"]),
+                    ("rank_hard_active", "all", ["query_auc"]),
+                    ("hard", "all", ["roc_auc", "average_precision"]),
                     ("rank_hard", "full_candidates", ks_h + ["mrr", "query_auc"]),
                     ("rank_hard", "all", ["query_auc"]),
                     ("rank_random", "all", ks_r + ["mrr"]),
                     ("random", "all", ["roc_auc", "average_precision"])]
         for p, sub, metrics in sections:
-            refs = sorted({val_best.get(p, "adamic_adar"), "adamic_adar"} if p in ("hard", "rank_hard") else {val_best[p]})
+            refs = sorted({val_best.get(p, "adamic_adar"), "adamic_adar"} if p in PAIR_PROTOCOLS else {val_best[p]})
             t = pd.concat([table(s, split, p, sub, metrics, FINAL), heuristic_rows(base, split, p, sub, metrics, refs)])
-            out += [f"### {p} — {sub}", "", report.to_md(t), ""]
+            tag = {"hard_active": " (lead pair-level metric)", "hard": " (includes activity)"}.get(p, "")
+            out += [f"### {p} — {sub}{tag}", "", report.to_md(t), ""]
         out += [f"### Cold start vs established ({split})", ""]
         cs = []
-        for p, metric in (("hard", "roc_auc"), ("rank_hard", "query_auc")):
+        for p, metric in (("hard_active", "roc_auc"), ("rank_hard_active", "query_auc"),
+                          ("hard", "roc_auc"), ("rank_hard", "query_auc")):
             for sub in ("cold_start", "established"):
                 d = s[(s.split == split) & (s.protocol == p) & (s.subset == sub) & (s.metric == metric)].set_index("model")
                 b = base[(base.split == split) & (base.protocol == p) & (base.subset == sub) & (base.metric == metric)].set_index("model")
@@ -139,14 +155,14 @@ def write_feature_report(cfg: dict, mix: dict, params: dict, val_best: dict) -> 
                      "median p": f"{d['p'].median():.3f}"})
     out += [report.to_md(pd.DataFrame(rows)), ""]
 
-    out += ["## Ablation by feature family (LightGBM, chosen mix and params, test)", ""]
+    out += ["## Ablation by feature family (general LightGBM, chosen mix and params, test)", ""]
     ab = []
     for lab in ABL_ORDER:
         mname = f"lightgbm[{lab}]"
         row = {"features": lab}
-        for p, sub, metric in (("hard", "all", "roc_auc"), ("hard", "cold_start", "roc_auc"), ("hard", "established", "roc_auc"),
-                               ("rank_hard", "full_candidates", "mrr"), ("rank_hard", "cold_start", "query_auc"),
-                               ("rank_hard", "established", "query_auc")):
+        for p, sub, metric in (("hard_active", "all", "roc_auc"), ("hard_active", "cold_start", "roc_auc"),
+                               ("hard_active", "established", "roc_auc"), ("rank_hard_active", "full_candidates", "mrr"),
+                               ("hard", "all", "roc_auc"), ("rank_hard", "full_candidates", "mrr")):
             d = sa[(sa.model == mname) & (sa.split == "test") & (sa.protocol == p) & (sa.subset == sub) & (sa.metric == metric)]
             row[f"{p} {metric} {sub}"] = msd(d.iloc[0]) if len(d) else ""
         ab.append(row)
@@ -204,12 +220,12 @@ def _style(ax, title, xlabel):
 
 
 def ablation_figure(sa: pd.DataFrame, base: pd.DataFrame, path: Path) -> None:
-    panels = [("hard", "all", "roc_auc", "hard ROC-AUC\nall distance-2 positives"),
-              ("hard", "cold_start", "roc_auc", "hard ROC-AUC\ncold-start positives"),
-              ("hard", "established", "roc_auc", "hard ROC-AUC\nestablished positives"),
-              ("rank_hard", "full_candidates", "mrr", "rank_hard MRR\nfull-candidate queries"),
-              ("rank_hard", "cold_start", "query_auc", "rank_hard query AUC\ncold-start positives"),
-              ("rank_hard", "established", "query_auc", "rank_hard query AUC\nestablished positives")]
+    panels = [("hard_active", "all", "roc_auc", "hard_active ROC-AUC (lead)\nall distance-2 positives"),
+              ("hard_active", "cold_start", "roc_auc", "hard_active ROC-AUC\ncold-start positives"),
+              ("hard_active", "established", "roc_auc", "hard_active ROC-AUC\nestablished positives"),
+              ("rank_hard_active", "full_candidates", "mrr", "rank_hard_active MRR\nfull-candidate queries"),
+              ("hard", "all", "roc_auc", "hard ROC-AUC (includes activity)\nall distance-2 positives"),
+              ("rank_hard", "full_candidates", "mrr", "rank_hard MRR (includes activity)\nfull-candidate queries")]
     fig, axes = plt.subplots(2, 3, figsize=(12, 6.6), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     y = np.arange(len(ABL_ORDER))[::-1]
@@ -240,8 +256,9 @@ def ablation_figure(sa: pd.DataFrame, base: pd.DataFrame, path: Path) -> None:
 
 
 def comparison_figure(s: pd.DataFrame, base: pd.DataFrame, path: Path) -> None:
-    models = ["adamic_adar", "katz", "logreg", "lightgbm", "lightgbm_d2_specialist"]
+    models = ["adamic_adar", "katz", "logreg", "lightgbm", "lightgbm_d2_specialist", "lightgbm_pair_focused"]
     agg = s.rename(columns={"mean": "value"})[["model", "split", "protocol", "subset", "metric", "value", "ci_low", "ci_high"]]
     b = base[base.model.isin(["adamic_adar", "katz"])][["model", "split", "protocol", "subset", "metric", "value", "ci_low", "ci_high"]]
     report.protocol_figure(pd.concat([b, agg]), "test", models, path,
-                           note=" Learned models: mean over 5 seeds of the point estimate and of the CI bounds.")
+                           note=" Learned models: mean over 5 seeds of the point estimate and of the CI bounds.",
+                           protocols=("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random"))

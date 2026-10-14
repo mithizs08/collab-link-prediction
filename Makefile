@@ -23,6 +23,7 @@ features:    ## work embeddings (cached) + pair features per split, pre-cutoff o
 train:       ## feature models (LR, LightGBM): mix grid, search, 5 seeds, paired tests, ablation
 	PYTHONPATH=src $(PYTHON) scripts/run_feature_models.py --config $(CONFIG)
 	PYTHONPATH=src $(PYTHON) scripts/activity_diagnostic.py
+	PYTHONPATH=src $(PYTHON) scripts/run_node2vec.py --config $(CONFIG)
 
 evaluate:    ## score models on val/test, write results/*.csv
 	$(RUN) evaluate

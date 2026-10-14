@@ -20,14 +20,20 @@ HEADLINE = {
     "rank_random": ("all", "mrr"),
     "random": ("all", "roc_auc"),
     "diagnostic_all_vs_hard": ("all", "roc_auc"),
+    "hard_active": ("all", "roc_auc"),
+    "rank_hard_active": ("full_candidates", "mrr"),
 }
 FIG_TITLES = {
+    "hard_active": "hard_active (lead, pair-level)\ndistance-2 positives vs activity-matched hard negatives",
+    "rank_hard_active": "rank_hard_active\nvs ≤100 active distance-2 candidates (full queries)",
     "hard": "hard (headline)\ndistance-2 positives vs hard negatives",
     "rank_hard": "rank_hard\nvs ≤100 distance-2 candidates (full queries)",
     "rank_random": "rank_random\nvs 100 random candidates",
     "random": "random (easy)\nall positives vs random negatives",
 }
 PROTOCOL_TITLES = {
+    "hard_active": "hard_active: distance-2 positives vs activity-matched hard negatives (lead)",
+    "rank_hard_active": "rank_hard_active: vs ≤100 active distance-2 candidates",
     "hard": "hard: distance-2 positives vs hard negatives (headline)",
     "rank_hard": "rank_hard: distance-2 positives vs ≤100 distance-2 candidates",
     "rank_random": "rank_random: each positive vs 100 random candidates",
@@ -97,10 +103,18 @@ def _bars(ax, d: pd.DataFrame, models: list[str], color: str, ref: float | None,
         ax.axvline(ref, color=INK_2, linewidth=1, linestyle=(0, (3, 3)))
 
 
-def protocol_figure(df: pd.DataFrame, split: str, models: list[str], path: Path, note: str = "") -> None:
-    panels = [("hard", "ROC-AUC", 0.5, (0, 1)), ("rank_hard", "MRR (full-candidate queries)", None, None),
-              ("rank_random", "MRR", RANDOM_MRR_101, None), ("random", "ROC-AUC", 0.5, (0, 1))]
-    fig, axes = plt.subplots(2, 2, figsize=(10, 6.4), dpi=150)
+PANELS = {
+    "hard_active": ("ROC-AUC", 0.5, (0, 1)), "rank_hard_active": ("MRR (full-candidate queries)", None, None),
+    "hard": ("ROC-AUC", 0.5, (0, 1)), "rank_hard": ("MRR (full-candidate queries)", None, None),
+    "rank_random": ("MRR", RANDOM_MRR_101, None), "random": ("ROC-AUC", 0.5, (0, 1)),
+}
+
+
+def protocol_figure(df: pd.DataFrame, split: str, models: list[str], path: Path, note: str = "",
+                    protocols=("hard", "rank_hard", "rank_random", "random")) -> None:
+    panels = [(p, *PANELS[p]) for p in protocols]
+    rows = (len(panels) + 1) // 2
+    fig, axes = plt.subplots(rows, 2, figsize=(10, 3.2 * rows), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     for ax, (p, label, ref, xlim) in zip(axes.ravel(), panels):
         subset, metric = HEADLINE[p]

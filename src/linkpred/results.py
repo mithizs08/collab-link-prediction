@@ -24,8 +24,8 @@ RESULT_COLUMNS = (
     "model", "split", "protocol", "subset", "negative_type", "seed", "metric", "value", "ci_low", "ci_high",
 )
 VALID_SPLITS = {"train", "val", "test"}
-PROTOCOLS = {"hard", "rank_random", "rank_hard", "random", "diagnostic_all_vs_hard"}
-NEGATIVE_TYPES = {"random", "hard"}
+PROTOCOLS = {"hard", "rank_random", "rank_hard", "random", "diagnostic_all_vs_hard", "hard_active", "rank_hard_active"}
+NEGATIVE_TYPES = {"random", "hard", "hard_active"}
 OPTIONAL = {"ci_low", "ci_high"}
 
 
