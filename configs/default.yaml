@@ -15,14 +15,17 @@ paths:
   report: report
 
 data:
-  source: null               # TODO: e.g. OpenAlex institution snapshot; decide in data phase
-  institution_id: null       # TODO
-  start_year: null           # TODO: first publication year to include
-  end_year: null             # TODO: last complete publication year
-  max_authors_per_work: 25   # works with more authors are dropped: hyper-authored papers
-                             # create huge cliques that dominate the graph without reflecting
-                             # real collaboration ties
-  min_works_per_author: 1    # TODO: revisit after EDA
+  # Raw input: existing OpenAlex snapshot from the earlier UTS project (read-only).
+  # Set snapshot_path: null to build from data/raw/openalex_pages instead
+  # (populated by `python -m linkpred.data.fetch_openalex`).
+  source: openalex
+  snapshot_path: /Users/zareenshyma/Documents/uts-research-intelligence/data/raw/uts_works_2015_2025.json
+  institution_id: I114017466 # University of Technology Sydney (ROR 03f0f6041), verified 2026-10-14
+  start_year: 2015
+  end_year: 2025
+  max_authors_per_work: 25   # works with more authors are kept in works.parquet but produce
+                             # no edges: hyper-authored papers create huge cliques that dominate
+                             # the graph without reflecting real collaboration ties
 
 # Temporal split. For each period, the observed graph is built ONLY from works
 # with year < *_cutoff; positives are author pairs that co-author for the FIRST

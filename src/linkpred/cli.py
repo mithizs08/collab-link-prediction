@@ -13,8 +13,15 @@ from linkpred.config import load_config, set_seed
 
 STAGES = ("data", "splits", "baselines", "features", "train", "evaluate", "report")
 
+def _data(cfg: dict) -> None:
+    from linkpred.data import audit, build
+
+    build.main(cfg)
+    audit.main(cfg)
+
+
 # stage name -> callable(cfg). Filled in as phases are built.
-IMPLEMENTED: dict = {}
+IMPLEMENTED: dict = {"data": _data}
 
 
 def main(argv: list[str] | None = None) -> int:
