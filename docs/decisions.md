@@ -498,3 +498,13 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   the best GNN's 0.687 falls to 0.660 / 0.621, significantly below Adamic-Adar.
 - **Open question:** whether to (a) report `hard_active` with newcomer-matched strata as standard, or
   (b) build activity-matched negatives that also match newcomer composition. Not changed here.
+
+## 2026-10-15 — Repository fix: model code was not in git (Phases 3–6)
+- **Problem:** the `.gitignore` artifact rule `models/` (meant for checkpoints) also matched
+  `src/linkpred/models/`, so `heuristics.py`, `feature_models.py`, `node2vec.py` and `gnn.py` were
+  never committed. Local runs, tests and the Colab bundle (built from disk) were unaffected, which is
+  why it went unnoticed; the GitHub repo could not run any model.
+- **Fix:** artifact-folder rules anchored to the repo root (`/models/`, …) and the package committed
+  (4b7a30c). Verified with a fresh clone: imports resolve to the clone, 136 tests pass and 50 data-
+  dependent tests skip as designed.
+- **Prevention:** the fresh-clone test is now part of the phase-end check.
