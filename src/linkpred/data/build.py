@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import unicodedata
 from collections import Counter
@@ -266,7 +267,15 @@ def build_authors(auth: pd.DataFrame, works: pd.DataFrame, flagged: pd.DataFrame
 
 def build(cfg: dict) -> dict:
     d, paths = cfg["data"], cfg["paths"]
-    source = Path(d["snapshot_path"] or Path(paths["raw"]) / "openalex_pages")
+    # Snapshot location: env LINKPRED_SNAPSHOT_PATH > config data.snapshot_path > cached API pages
+    # (data/raw/openalex_pages, filled by `python -m linkpred.data.fetch_openalex`). See README.
+    snap = os.environ.get("LINKPRED_SNAPSHOT_PATH") or d.get("snapshot_path")
+    source = Path(snap) if snap and Path(snap).exists() else Path(paths["raw"]) / "openalex_pages"
+    if not source.exists():
+        raise FileNotFoundError(
+            f"No OpenAlex input found (snapshot {snap!r} missing and {source} absent). Set LINKPRED_SNAPSHOT_PATH "
+            "to a works JSON snapshot, or run `python -m linkpred.data.fetch_openalex` (needs OPENALEX_MAILTO, "
+            "optionally OPENALEX_API_KEY) to download the pages; see README 'Rebuilding the data'.")
     uts_id, max_authors = d["institution_id"], d["max_authors_per_work"]
     out = Path(paths["processed"])
     out.mkdir(parents=True, exist_ok=True)

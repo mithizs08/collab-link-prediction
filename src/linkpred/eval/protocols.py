@@ -13,6 +13,14 @@ hard_active             distance-2 positives vs hard negatives whose two authors
                         prediction year (activity-matched). LEAD pair-level metric from Phase 5 on.
 rank_hard_active        rank_hard with candidates restricted to authors active in the prediction year.
 
+Within-group evaluation (audit M2, decisions.md 2026-10-15): for hard, hard_active, rank_hard and
+rank_hard_active every model also gets `established_matched` and `newcomer_matched` subsets, where
+positives AND negatives / candidates come from the same group (a pair is a "newcomer" pair if either
+author has <= cold_start_max_works works before the cutoff), and `macro` = the unweighted mean of the
+two within-group scores. Macro is the headline; pooled (`all`) numbers are affected by the newcomer
+imbalance between positives and negatives. Ranking groups use query_auc (count-independent) as the
+headline metric because group matching changes the candidate counts.
+
 A scoring function has the signature score_fn(split, u_idx, v_idx) -> np.ndarray, higher =
 more likely to collaborate, where `split` is the dict returned by splits.load_split and
 indices are that split's node indices. It must only use the split's input graph / node table.
@@ -77,8 +85,77 @@ def _scores(scorer, split) -> PairScores:
     return scorer if isinstance(scorer, PairScores) else PairScores(scorer, split)
 
 
-def _rng(boot_seed: int, protocol: str, split_name: str) -> np.random.Generator:
-    return np.random.default_rng([boot_seed, PROTOCOL_ORDER.index(protocol), SPLIT_INDEX[split_name]])
+def _rng(boot_seed: int, protocol: str, split_name: str, stream: int | None = None) -> np.random.Generator:
+    key = [boot_seed, PROTOCOL_ORDER.index(protocol), SPLIT_INDEX[split_name]]
+    # Group-matched subsets use extra streams so the pooled rows keep their original resamples.
+    return np.random.default_rng(key if stream is None else key + [stream])
+
+
+GROUP_SUBSETS = ("established_matched", "newcomer_matched")
+
+
+def newcomer_pairs(split: dict, u: np.ndarray, v: np.ndarray) -> np.ndarray | None:
+    """True where either endpoint has <= cold_start_max_works works before the cutoff (pre-cutoff info)."""
+    if "nodes" not in split or "stats" not in split:
+        return None
+    nw = split["nodes"]["n_works_before"].values           # rows are in node_idx order
+    k = split["stats"]["cold_start_max_works"]
+    return (nw[u] <= k) | (nw[v] <= k)
+
+
+def _group_classification(ctx, protocol, neg_type, s, split, pos_mask, neg_name, n_boot):
+    pos_df, neg_df = split["positives"], split[neg_name]
+    pn = newcomer_pairs(split, pos_df["u_idx"].values, pos_df["v_idx"].values)
+    if pn is None:
+        return [], {}
+    nn = newcomer_pairs(split, neg_df["u_idx"].values, neg_df["v_idx"].values)
+    pos, neg = s("positives")[pos_mask], s(neg_name)
+    pn = pn[pos_mask]
+    groups = {"established_matched": {"pos": pos[~pn], "neg": neg[~nn]},
+              "newcomer_matched": {"pos": pos[pn], "neg": neg[nn]}}
+    if min(min(len(g["pos"]), len(g["neg"])) for g in groups.values()) == 0:
+        return [], {}
+    raws = {**groups, "macro": {"groups": list(groups.values())}}
+    rows = []
+    for k, (subset, raw) in enumerate(raws.items()):
+        for metric in ("roc_auc", "average_precision"):
+            ci = bs.raw_ci(raw, metric, _rng(ctx["boot_seed"], protocol, ctx["split_name"], 100 + k), n_boot) if n_boot else (None, None)
+            rows.append(_row(ctx, protocol, subset, neg_type, metric, bs.raw_stat(raw, metric), ci))
+        if subset != "macro":
+            rows.append(_row(ctx, protocol, subset, neg_type, "n_positives", len(raw["pos"])))
+            rows.append(_row(ctx, protocol, subset, neg_type, "n_negatives", len(raw["neg"])))
+    return rows, raws
+
+
+def _group_ranking(ctx, protocol, neg_type, s, split, table, n_boot):
+    """Candidates restricted to the query's group: a query (u, v) is a newcomer query if u or v is a
+    newcomer; candidate (u, w) is kept only if its own pair group equals the query's group."""
+    pos_df, rk = split["positives"], split[table]
+    qn = newcomer_pairs(split, pos_df["u_idx"].values, pos_df["v_idx"].values)
+    if qn is None:
+        return [], {}
+    q = rk["query_id"].values
+    cn = newcomer_pairs(split, rk["head_idx"].values, rk["cand_idx"].values)
+    keep = cn == qn[q]
+    g, e, n = rank_counts(s("positives"), s(table)[keep], q[keep], len(pos_df))
+    pq = per_query_metrics(g, e, np.maximum(n, 1), RANK_KS_HARD)
+    asked = np.zeros(len(pos_df), bool)
+    asked[np.unique(q)] = True
+    has = asked & (n > 0)
+    take = lambda m: {k: pq[k][m] for k in ("query_auc", "mrr")}
+    groups = {"established_matched": take(has & ~qn), "newcomer_matched": take(has & qn)}
+    if min(len(g["query_auc"]) for g in groups.values()) == 0:
+        return [], {}
+    raws = {**groups, "macro": {"groups": list(groups.values())}}
+    rows = []
+    for k, (subset, raw) in enumerate(raws.items()):
+        for metric in ("query_auc", "mrr"):
+            ci = bs.raw_ci(raw, metric, _rng(ctx["boot_seed"], protocol, ctx["split_name"], 100 + k), n_boot) if n_boot else (None, None)
+            rows.append(_row(ctx, protocol, subset, neg_type, metric, bs.raw_stat(raw, metric), ci))
+        if subset != "macro":
+            rows.append(_row(ctx, protocol, subset, neg_type, "n_queries", len(raw["query_auc"])))
+            rows.append(_row(ctx, protocol, subset, neg_type, "n_candidates", int(n[has & (qn if subset == "newcomer_matched" else ~qn)].sum())))
+    return rows, raws
 
 
 def _row(ctx, protocol, subset, neg_type, metric, value, ci=(None, None)):
@@ -126,7 +203,9 @@ def protocol_hard(scorer, split, ctx, n_boot=1000):
     pos = s("positives")
     cold = pos_df["cold_start"].values
     subsets = {"all": pos[d2], "cold_start": pos[d2 & cold], "established": pos[d2 & ~cold]}
-    return _classification(ctx, "hard", "hard", subsets, s("neg_hard"), n_boot)
+    rows, raw = _classification(ctx, "hard", "hard", subsets, s("neg_hard"), n_boot)
+    r2, x2 = _group_classification(ctx, "hard", "hard", s, split, d2, "neg_hard", n_boot)
+    return rows + r2, {**raw, **x2}
 
 
 def protocol_random(scorer, split, ctx, n_boot=1000):
@@ -174,7 +253,9 @@ def protocol_hard_active(scorer, split, ctx, n_boot=1000):
     d2 = (pos_df["distance"] == 2).values
     pos, cold = s("positives"), pos_df["cold_start"].values
     subsets = {"all": pos[d2], "cold_start": pos[d2 & cold], "established": pos[d2 & ~cold]}
-    return _classification(ctx, "hard_active", "hard_active", subsets, s("neg_hard_active"), n_boot)
+    rows, raw = _classification(ctx, "hard_active", "hard_active", subsets, s("neg_hard_active"), n_boot)
+    r2, x2 = _group_classification(ctx, "hard_active", "hard_active", s, split, d2, "neg_hard_active", n_boot)
+    return rows + r2, {**raw, **x2}
 
 
 def protocol_rank_hard_active(scorer, split, ctx, n_boot=1000, k_full=100):
@@ -205,9 +286,11 @@ def _rank_hard_like(scorer, split, ctx, n_boot, k_full, table, protocol, neg_typ
     subsets = {"full_candidates": take(full), "partial_candidates": take(partial), "all": take(has),
                "cold_start": take(has & cold), "established": take(has & ~cold)}
     qa = ["query_auc"]
-    return _ranking(ctx, protocol, neg_type, subsets, n_boot,
-                    {"full_candidates": metrics, "partial_candidates": metrics, "all": qa,
-                     "cold_start": qa, "established": qa})
+    rows, raw = _ranking(ctx, protocol, neg_type, subsets, n_boot,
+                         {"full_candidates": metrics, "partial_candidates": metrics, "all": qa,
+                          "cold_start": qa, "established": qa})
+    r2, x2 = _group_ranking(ctx, protocol, neg_type, s, split, table, n_boot)
+    return rows + r2, {**raw, **x2}
 
 
 PROTOCOLS = {
@@ -220,6 +303,17 @@ PROTOCOLS = {
     "rank_hard_active": protocol_rank_hard_active,
 }
 RANK_HARD_LIKE = {"rank_hard", "rank_hard_active"}
+
+
+def paired_test(raw_a: dict, raw_b: dict, protocol: str, subset: str, metric: str,
+                rng: np.random.Generator, n_boot: int = 1000) -> dict:
+    """Paired bootstrap for any protocol / subset (pooled, ranking or macro), same resamples for A and B."""
+    a, b = raw_a[protocol][subset], raw_b[protocol][subset]
+    if "pos" in a:      # pooled classification keeps the original routine (unchanged rows)
+        return bs.paired_classification(a["pos"], a["neg"], b["pos"], b["neg"], metric, rng, n_boot)
+    if "groups" in a:
+        return bs.paired_raw(a, b, metric, rng, n_boot)
+    return bs.paired_mean(a[metric], b[metric], rng, n_boot)
 
 
 def evaluate(score_fn: ScoreFn | None, split: dict, split_name: str, model: str, seed: int, boot_seed: int,

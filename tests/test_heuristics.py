@@ -77,3 +77,19 @@ def test_isolated_node_scores_zero(graph):
     u, v = np.array([0]), np.array([60])
     for name in H.HEURISTICS:
         assert H.score(name, split, u, v)[0] == 0.0
+
+
+def test_context_cache_never_stale():
+    """Audit m8: the cache is checked by object identity, so a different adjacency is never served stale."""
+    A1 = sp.csr_matrix(np.array([[0, 1, 1], [1, 0, 0], [1, 0, 0]], dtype=float))
+    A2 = sp.csr_matrix(np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=float))
+    s1, s2 = {"A": A1}, {"A": A2}
+    assert H.context(s1).deg.tolist() == [2, 1, 1]
+    assert H.context(s2).deg.tolist() == [1, 2, 1]
+    assert H.context(s1).deg.tolist() == [2, 1, 1]
+
+
+def test_prefer_newer():
+    import pandas as pd
+    split = {"nodes": pd.DataFrame({"n_works_before": [10, 1, 5]})}
+    assert H.prefer_newer(split, np.array([0, 0]), np.array([1, 2])).tolist() == [-1.0, -5.0]

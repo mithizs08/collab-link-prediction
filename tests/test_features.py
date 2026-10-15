@@ -9,7 +9,7 @@ from linkpred.data.build import build
 from linkpred.data.splits import build_input_graph, build_splits, load_split, load_tables
 from linkpred.features.build import canonical, features_for, orient_by_frequency
 from linkpred.features.pair_features import ALL_FEATURES, NO_SHARED, FeatureContext, load_feature_tables
-from linkpred.models.feature_models import training_set
+from linkpred.models.feature_models import training_pairs, training_set
 
 from test_leakage import _synthetic_cfg
 
@@ -177,3 +177,14 @@ def test_gnn_node_features_ignore_works_in_or_after_cutoff(synth, split):
     emb2[future] = np.random.default_rng(7).normal(size=(future.sum(), emb2.shape[1]))
     s2, t2 = arrays(past, st_past, emb2)
     assert np.array_equal(s1, s2) and np.array_equal(t1, t2)
+
+
+def test_d2_only_training_pairs(synth):
+    """Audit M1: the pair-focused training set uses distance-2 positives only, so distance cannot separate classes."""
+    cfg = synth["cfg"]
+    train = load_split(cfg["paths"]["splits"], "train")
+    pairs, y = training_pairs(train, 0.0, 1, active=True, d2_only=True)
+    pos = train["positives"]
+    d2 = set(zip(pos.u_idx[pos.distance == 2], pos.v_idx[pos.distance == 2]))
+    got = set(zip(pairs.u_idx[y == 1], pairs.v_idx[y == 1]))
+    assert got == d2 and (y == 0).sum() == len(d2)

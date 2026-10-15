@@ -36,15 +36,19 @@ class GraphContext:
             self.w_ra = np.where(self.deg > 0, 1.0 / np.maximum(self.deg, 1), 0.0)
 
 
-_CONTEXTS: dict[int, GraphContext] = {}
+_CACHE: dict = {"A": None, "ctx": None}
 
 
 def context(split: dict) -> GraphContext:
-    key = id(split["A"])
-    if key not in _CONTEXTS:
-        _CONTEXTS.clear()  # one split at a time keeps memory bounded
-        _CONTEXTS[key] = GraphContext(split["A"])
-    return _CONTEXTS[key]
+    """GraphContext for the split's adjacency, cached for ONE adjacency object at a time.
+
+    The cache holds a reference to the adjacency it was built from and is checked by identity
+    (`is`), so it can never return a stale context for a different matrix. (An earlier version
+    keyed the cache on id(A), which a new object can reuse after garbage collection; audit m8.)
+    """
+    if _CACHE["A"] is not split["A"]:
+        _CACHE["A"], _CACHE["ctx"] = split["A"], GraphContext(split["A"])
+    return _CACHE["ctx"]
 
 
 def _common(ctx: GraphContext, u: np.ndarray, v: np.ndarray) -> sp.csr_matrix:
@@ -91,7 +95,18 @@ def score(name: str, split: dict, u: np.ndarray, v: np.ndarray) -> np.ndarray:
 
 def scorer(name: str):
     """score_fn(split, u, v) for the evaluation protocols."""
+    if name == "prefer_newer":
+        return prefer_newer
     return partial(score, name)
+
+
+def prefer_newer(split: dict, u: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Reference scorer (audit M2): prefer pairs with a newer author, -min(works before the cutoff).
+
+    It uses no pair information at all; it measures how much a protocol rewards newcomer status.
+    Pre-cutoff by construction (`n_works_before` in the split's node table)."""
+    nw = split["nodes"]["n_works_before"].values.astype(np.float64)
+    return -np.minimum(nw[np.asarray(u)], nw[np.asarray(v)])
 
 
 # ---------------------------------------------------------------- truncated Katz

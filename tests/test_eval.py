@@ -152,3 +152,66 @@ def test_paired_detects_clear_difference():
     assert r["diff"] > 0 and r["ci_low"] > 0 and r["p_value"] <= 0.01
     m = bs.paired_mean(np.ones(50), np.zeros(50), np.random.default_rng(2), 200)
     assert m["diff"] == 1 and m["p_value"] == pytest.approx(1 / 200)
+
+
+# ---------------------------------------------------------------- group-matched (within-group) evaluation (audit M2)
+
+@pytest.fixture
+def gsplit():
+    """Nodes 0-19 established (10 works), 20-39 newcomers (1 work). Positives / negatives mixed."""
+    rng = np.random.default_rng(3)
+    n = 40
+    nodes = pd.DataFrame({"node_idx": np.arange(n), "n_works_before": np.r_[np.full(20, 10), np.full(20, 1)]})
+    P = 30
+    pu, pv = rng.integers(0, n, P), rng.integers(0, n, P)
+    pos = pd.DataFrame({"u_idx": pu, "v_idx": pv, "distance": 2.0, "cold_start": False})
+    neg = pd.DataFrame({"u_idx": rng.integers(0, n, 40), "v_idx": rng.integers(0, n, 40)})
+    rk = pd.DataFrame({"query_id": np.repeat(np.arange(P), 8), "head_idx": np.repeat(pu, 8),
+                       "cand_idx": rng.integers(0, n, P * 8)})
+    return {"A": sp.csr_matrix((n, n)), "nodes": nodes, "stats": {"cold_start_max_works": 2},
+            "positives": pos, "neg_random": neg, "neg_hard": neg, "neg_hard_active": neg,
+            "ranking": rk, "ranking_hard": rk, "ranking_hard_active": rk}
+
+
+def test_group_matched_rows_and_macro(gsplit):
+    from linkpred.eval.protocols import newcomer_pairs
+    rng = np.random.default_rng(0)
+    score = lambda _, u, v: rng.normal(size=len(u))
+    rows, raw = evaluate(score, gsplit, "val", "m", 0, 0, n_boot=30, protocols=("hard_active", "rank_hard_active"))
+    df = pd.DataFrame(rows)
+    pos, neg = gsplit["positives"], gsplit["neg_hard_active"]
+    pn = newcomer_pairs(gsplit, pos.u_idx.values, pos.v_idx.values)
+    nn = newcomer_pairs(gsplit, neg.u_idx.values, neg.v_idx.values)
+    g = lambda sub, m: df[(df.protocol == "hard_active") & (df.subset == sub) & (df.metric == m)].value.iloc[0]
+    assert g("established_matched", "n_positives") == (~pn).sum() and g("established_matched", "n_negatives") == (~nn).sum()
+    assert g("newcomer_matched", "n_negatives") == nn.sum()
+    assert g("macro", "roc_auc") == pytest.approx((g("established_matched", "roc_auc") + g("newcomer_matched", "roc_auc")) / 2)
+    # ranking: every kept candidate has the query's group
+    a = raw["rank_hard_active"]
+    assert len(a["established_matched"]["query_auc"]) + len(a["newcomer_matched"]["query_auc"]) <= len(pos)
+
+
+def test_prefer_newer_is_chance_within_groups(gsplit):
+    """With a constant number of prior works inside a group (this fixture), a scorer that only knows
+    seniority separates nothing once both classes come from that group. (On real data prior works vary
+    within groups, so prefer_newer is not 0.5 there.)"""
+    from linkpred.models.heuristics import prefer_newer
+    rows, _ = evaluate(prefer_newer, gsplit, "val", "pn", 0, 0, n_boot=0, protocols=("hard_active",))
+    df = pd.DataFrame(rows)
+    est = df[(df.subset == "established_matched") & (df.metric == "roc_auc")].value.iloc[0]
+    assert est == 0.5      # all established pairs score -10: all tied
+
+
+def test_holm_and_seed_mean_ci():
+    from linkpred.eval import bootstrap as bs
+    adj = bs.holm({"a": 0.01, "b": 0.04, "c": 0.03})
+    assert adj["a"] == pytest.approx(0.03) and adj["c"] == pytest.approx(0.06) and adj["b"] == pytest.approx(0.06)
+    assert bs.holm({"a": 0.6, "b": 0.5})["a"] == 1.0
+    rng = np.random.default_rng(0)
+    raw = {"pos": rng.normal(1, 1, 200), "neg": rng.normal(0, 1, 200)}
+    one = bs.seed_mean_ci([raw], "roc_auc", np.random.default_rng(1), 200)
+    ref = bs.raw_ci(raw, "roc_auc", np.random.default_rng(1), 200)
+    assert one == ref                                    # a single seed reduces to the ordinary CI
+    macro = {"groups": [raw, {"pos": rng.normal(2, 1, 50), "neg": rng.normal(0, 1, 80)}]}
+    r = bs.paired_raw(macro, macro, "roc_auc", np.random.default_rng(2), 100)
+    assert r["diff"] == 0 and r["ci_low"] == 0 and r["ci_high"] == 0

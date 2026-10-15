@@ -33,8 +33,8 @@ results files named in each entry.
   `results/`.
 
 ## Phase 6 — Colab GPU run (2026-10-15)
-Source: `run.log` and per-run `curve.csv` / `meta.json` in the downloaded results folder (curves copied
-to `report/gnn/curves/`), `results/gnn_versions.json`.
+Source: `report/gnn/run.log` (imported from the Colab results folder, audit m3), per-run curves in
+`report/gnn/curves/`, `results/gnn_versions.json`.
 
 - **Environment and wall time.** Tesla T4, Python 3.13.15, torch 2.11.0+cu130, CUDA 13.0, cuDNN 9.2.7,
   torch_geometric 2.6.1, numpy 2.1.3 (Colab's preinstalled torch, not the local 2.4.1). One session,
@@ -44,8 +44,9 @@ to `report/gnn/curves/`), `results/gnn_versions.json`.
   node-feature setting, 48 in total, and 48 ran. The pre-run estimate and the decisions entry said
   10 / 40 — a counting error in the prose, now corrected; the code always ran what the config said.
 - **Overfitting in general SAGE + text configs.** With text node features the general objective
-  overfits: at lr 0.005 training loss falls to 0.065–0.105 (h64/h128, 2–3 layers) while validation
-  `hard` ROC-AUC plateaus at 0.75–0.765; the final `gnn_general_sage_text` runs reach a training loss
+  overfits: at lr 0.005 training loss falls to 0.065–0.177 (h64_L2 0.065, h128_L2 0.081, h128_L3 0.105,
+  h64_L3 0.177; corrected per audit m2, `report/gnn/curves/`) while validation `hard` ROC-AUC plateaus
+  at 0.75–0.765; the final `gnn_general_sage_text` runs reach a training loss
   of 0.051. Early stopping (patience 30) keeps the best validation epoch, so the reported models are
   the pre-overfitting checkpoints, but the gap shows that the 384-d text input lets the model memorise
   the ~9k training pairs. Not fixed further (dropout and weight decay were held fixed in the grid);
@@ -80,3 +81,10 @@ to `report/gnn/curves/`), `results/gnn_versions.json`.
   warnings, not measured.
 - **Cosmetic warning (fixed).** `float(loss)` on a tensor requiring grad triggered a UserWarning;
   replaced with `loss.item()`.
+
+## Audit remediation re-runs (2026-10-15)
+- **Memory pressure stall.** During the feature-model re-run one seed took ~16 min instead of ~35 s: the
+  8 GB laptop was swapping (6.2 of 7 GB swap used, process mostly paged out). No effect on results (all
+  runs deterministic); later seeds ran at normal speed. Keep other heavy apps closed during full re-runs.
+- **GNN scores re-evaluated, not retrained.** All saved Colab scores were re-evaluated locally with the
+  current protocols; pooled rows match the Colab evaluation to 1.1e-16 (`results/gnn_reeval_check.json`).

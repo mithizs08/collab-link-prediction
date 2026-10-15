@@ -169,6 +169,18 @@ Positives = pairs first co-authoring inside the window whose two authors are bot
 - **Authorship truncation.** The OpenAlex list API caps authorships at 100 (80 works); this only
   affects works already excluded from edges by the 25-author cap.
 - **Missing DOIs** (3.3% of works) can only be deduplicated by title + year.
+- **Test set reused for design decisions (audit M3).** Two diagnostics were computed on the test split
+  and led to design changes: the Phase 4 activity diagnostic (→ `hard_active` became the lead protocol and
+  the pair-focused models were built) and the Phase 6 newcomer diagnostic (→ group-matched, macro
+  evaluation became standard). No model was fitted, tuned, early-stopped or selected on test, but the test
+  set is **no longer a clean confirmation set** for those design decisions, and the size of the pair-focused
+  model's lead should be read as possibly optimistic. The same diagnostics on validation support both
+  decisions: the activity-matched gain of LightGBM over Adamic-Adar is +0.021 on validation (4/5 seeds,
+  `results/activity_diagnostic_paired.csv`) against +0.125 with all hard negatives; and newcomer pairs are
+  31.1% of validation distance-2 positives but 16.1% of activity-matched negatives (45.6% of hard
+  negatives), `results/baselines.csv` group counts. From now on diagnostics run on validation first
+  (CLAUDE.md rule 8). A clean confirmation would need a holdout nobody has looked at, e.g. the 2026
+  window once OpenAlex has indexed it.
 - **Pretrained text encoder.** Text features use all-MiniLM-L6-v2, pretrained on corpora that may
   include text published after the split cutoffs. Each work's embedding depends only on its own text,
   so no other work's information leaks, but the encoder's general knowledge is not time-restricted.

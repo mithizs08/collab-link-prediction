@@ -79,6 +79,9 @@ def main(argv=None):
     for name, rows in tables.items():
         write_results(rows, args.results_dir / name, append=False)
     shutil.copy(src / "versions.json", args.results_dir / "gnn_versions.json")
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    if (src / "run.log").exists():          # audit m3: keep the training log traceable in the repo
+        shutil.copy(src / "run.log", args.report_dir / "run.log")
     curves = args.report_dir / "curves"
     curves.mkdir(parents=True, exist_ok=True)
     for c in src.glob("**/curve.csv"):

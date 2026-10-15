@@ -62,3 +62,68 @@ def paired_mean(vals_a, vals_b, rng: np.random.Generator, n_boot: int = 1000):
     diffs = d[idx].mean(axis=1)
     lo, hi = np.percentile(diffs, [2.5, 97.5])
     return {"diff": float(d.mean()), "ci_low": float(lo), "ci_high": float(hi), "p_value": _p_value(diffs)}
+
+
+# ---------------------------------------------------------------- generic engine (audit M2 / M5)
+# A "raw" is one of:
+#   {"pos": array, "neg": array}                      pooled classification (ROC-AUC / AP)
+#   {metric: per-query array, ...}                    ranking (mean of per-query values)
+#   {"groups": [raw, raw, ...]}                       macro = unweighted mean of the groups' statistics
+# Resampling is stratified the same way everywhere: positives and negatives separately, queries
+# per group, each group independently. Group sizes depend only on the pairs, never on scores, so
+# the same draw applies to every model and every seed on the same split.
+
+def _draw(raw: dict, rng: np.random.Generator):
+    if "groups" in raw:
+        return [_draw(g, rng) for g in raw["groups"]]
+    if "pos" in raw:
+        return rng.integers(0, len(raw["pos"]), len(raw["pos"])), rng.integers(0, len(raw["neg"]), len(raw["neg"]))
+    n = len(next(iter(raw.values())))
+    return rng.integers(0, n, n)
+
+
+def raw_stat(raw: dict, metric: str, idx=None) -> float:
+    if "groups" in raw:
+        return float(np.mean([raw_stat(g, metric, None if idx is None else idx[k]) for k, g in enumerate(raw["groups"])]))
+    if "pos" in raw:
+        fn = CLASSIFICATION_METRICS[metric]
+        return fn(raw["pos"], raw["neg"]) if idx is None else fn(raw["pos"][idx[0]], raw["neg"][idx[1]])
+    v = raw[metric]
+    return float(v.mean() if idx is None else v[idx].mean())
+
+
+def raw_ci(raw: dict, metric: str, rng: np.random.Generator, n_boot: int = 1000):
+    vals = [raw_stat(raw, metric, _draw(raw, rng)) for _ in range(n_boot)]
+    return tuple(np.percentile(vals, [2.5, 97.5]))
+
+
+def seed_mean_ci(raws: list[dict], metric: str, rng: np.random.Generator, n_boot: int = 1000):
+    """CI of the MEAN over seeds of a metric: each resample is applied to every seed's scores and
+    the seeds' statistics are averaged (the audit's recommended interval for learned models)."""
+    vals = []
+    for _ in range(n_boot):
+        d = _draw(raws[0], rng)
+        vals.append(np.mean([raw_stat(r, metric, d) for r in raws]))
+    return tuple(np.percentile(vals, [2.5, 97.5]))
+
+
+def paired_raw(raw_a: dict, raw_b: dict, metric: str, rng: np.random.Generator, n_boot: int = 1000):
+    """A minus B on the same pairs / queries / groups, identical resamples for both."""
+    diffs = []
+    for _ in range(n_boot):
+        d = _draw(raw_a, rng)
+        diffs.append(raw_stat(raw_a, metric, d) - raw_stat(raw_b, metric, d))
+    diffs = np.asarray(diffs)
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    return {"diff": raw_stat(raw_a, metric) - raw_stat(raw_b, metric), "ci_low": float(lo), "ci_high": float(hi),
+            "p_value": _p_value(diffs)}
+
+
+def holm(p_values: dict) -> dict:
+    """Holm-Bonferroni adjusted p-values (step-down, monotone, capped at 1)."""
+    items = sorted(p_values.items(), key=lambda kv: kv[1])
+    m, out, running = len(items), {}, 0.0
+    for i, (k, p) in enumerate(items):
+        running = max(running, min(1.0, (m - i) * p))
+        out[k] = running
+    return out

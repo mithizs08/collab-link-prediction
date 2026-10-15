@@ -1,0 +1,889 @@
+22:13:27 device cuda; loaded in 2s
+22:13:27 grid general__sage__structural__mlp__h64_L2_d0.3_lr0.001
+/content/collab-link-prediction/src/linkpred/models/gnn.py:186: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  curve.append({"epoch": ep, "train_loss": float(loss), f"val_{metric}": val, "seconds": time.time() - t0})
+22:13:32   epoch 0: loss 0.6537 val roc_auc 0.5745
+22:13:33   epoch 25: loss 0.4017 val roc_auc 0.7391
+22:13:34   epoch 50: loss 0.3823 val roc_auc 0.7334
+22:13:35 grid general__sage__structural__mlp__h64_L2_d0.3_lr0.005
+22:13:35   epoch 0: loss 0.6537 val roc_auc 0.5869
+22:13:36   epoch 25: loss 0.3683 val roc_auc 0.7368
+22:13:37 grid general__sage__structural__mlp__h64_L3_d0.3_lr0.001
+22:13:37   epoch 0: loss 0.6998 val roc_auc 0.4977
+22:13:38   epoch 25: loss 0.4340 val roc_auc 0.7072
+22:13:40   epoch 50: loss 0.3927 val roc_auc 0.7355
+22:13:42   epoch 75: loss 0.3720 val roc_auc 0.7386
+22:13:43 grid general__sage__structural__mlp__h64_L3_d0.3_lr0.005
+22:13:43   epoch 0: loss 0.6998 val roc_auc 0.4718
+22:13:45   epoch 25: loss 0.3924 val roc_auc 0.7401
+22:13:47   epoch 50: loss 0.3650 val roc_auc 0.7413
+22:13:47 grid general__sage__structural__mlp__h128_L2_d0.3_lr0.001
+22:13:47   epoch 0: loss 0.7355 val roc_auc 0.5220
+22:13:49   epoch 25: loss 0.3746 val roc_auc 0.7359
+22:13:50   epoch 50: loss 0.3557 val roc_auc 0.7335
+22:13:52 grid general__sage__structural__mlp__h128_L2_d0.3_lr0.005
+22:13:52   epoch 0: loss 0.7355 val roc_auc 0.5182
+22:13:53   epoch 25: loss 0.3636 val roc_auc 0.7423
+22:13:55   epoch 50: loss 0.3443 val roc_auc 0.7392
+22:13:56   epoch 75: loss 0.3461 val roc_auc 0.7457
+22:13:58   epoch 100: loss 0.3207 val roc_auc 0.7318
+22:13:59   epoch 125: loss 0.3255 val roc_auc 0.7265
+22:14:00 grid general__sage__structural__mlp__h128_L3_d0.3_lr0.001
+22:14:00   epoch 0: loss 0.6724 val roc_auc 0.5615
+22:14:02   epoch 25: loss 0.3838 val roc_auc 0.7329
+22:14:05   epoch 50: loss 0.3576 val roc_auc 0.7418
+22:14:07   epoch 75: loss 0.3529 val roc_auc 0.7386
+22:14:10   epoch 100: loss 0.3399 val roc_auc 0.7388
+22:14:13 grid general__sage__structural__mlp__h128_L3_d0.3_lr0.005
+22:14:13   epoch 0: loss 0.6724 val roc_auc 0.5638
+22:14:15   epoch 25: loss 0.3833 val roc_auc 0.7387
+22:14:18   epoch 50: loss 0.3521 val roc_auc 0.7387
+22:14:19 grid general__gat__structural__mlp__h64_L2_d0.3_lr0.001
+22:14:20   epoch 0: loss 0.6635 val roc_auc 0.6661
+22:14:25   epoch 25: loss 0.5447 val roc_auc 0.6570
+22:14:27 grid general__gat__structural__mlp__h64_L2_d0.3_lr0.005
+22:14:27   epoch 0: loss 0.6635 val roc_auc 0.6777
+22:14:33   epoch 25: loss 0.4289 val roc_auc 0.7282
+22:14:38   epoch 50: loss 0.3922 val roc_auc 0.7322
+22:14:44 grid general__gat__structural__mlp__h128_L2_d0.3_lr0.001
+22:14:44   epoch 0: loss 0.6834 val roc_auc 0.6129
+22:14:53   epoch 25: loss 0.5402 val roc_auc 0.6627
+22:15:01   epoch 50: loss 0.4486 val roc_auc 0.7070
+22:15:10   epoch 75: loss 0.4212 val roc_auc 0.7253
+22:15:18   epoch 100: loss 0.4047 val roc_auc 0.7345
+22:15:27   epoch 125: loss 0.3771 val roc_auc 0.7339
+22:15:35   epoch 150: loss 0.3735 val roc_auc 0.7334
+22:15:43 grid general__gat__structural__mlp__h128_L2_d0.3_lr0.005
+22:15:43   epoch 0: loss 0.6834 val roc_auc 0.6361
+22:15:52   epoch 25: loss 0.4168 val roc_auc 0.7340
+22:16:00   epoch 50: loss 0.3825 val roc_auc 0.7281
+22:16:05 grid general__sage__text__mlp__h64_L2_d0.3_lr0.001
+22:16:05   epoch 0: loss 0.6682 val roc_auc 0.5768
+22:16:07   epoch 25: loss 0.5345 val roc_auc 0.6786
+22:16:10   epoch 50: loss 0.3855 val roc_auc 0.7027
+22:16:12   epoch 75: loss 0.3394 val roc_auc 0.7263
+22:16:15   epoch 100: loss 0.3255 val roc_auc 0.7336
+22:16:17   epoch 125: loss 0.2918 val roc_auc 0.7372
+22:16:20   epoch 150: loss 0.2434 val roc_auc 0.7362
+22:16:22 grid general__sage__text__mlp__h64_L2_d0.3_lr0.005
+22:16:22   epoch 0: loss 0.6682 val roc_auc 0.6112
+22:16:25   epoch 25: loss 0.3467 val roc_auc 0.7215
+22:16:27   epoch 50: loss 0.2853 val roc_auc 0.7452
+22:16:30   epoch 75: loss 0.2030 val roc_auc 0.7406
+22:16:32   epoch 100: loss 0.1344 val roc_auc 0.7506
+22:16:35   epoch 125: loss 0.0997 val roc_auc 0.7472
+22:16:37   epoch 150: loss 0.0814 val roc_auc 0.7439
+22:16:40 grid general__sage__text__mlp__h64_L3_d0.3_lr0.001
+22:16:40   epoch 0: loss 0.7067 val roc_auc 0.6682
+22:16:43   epoch 25: loss 0.5895 val roc_auc 0.6474
+22:16:46   epoch 50: loss 0.4429 val roc_auc 0.7251
+22:16:50   epoch 75: loss 0.3867 val roc_auc 0.7018
+22:16:50 grid general__sage__text__mlp__h64_L3_d0.3_lr0.005
+22:16:51   epoch 0: loss 0.7067 val roc_auc 0.6023
+22:16:54   epoch 25: loss 0.4065 val roc_auc 0.6839
+22:16:57   epoch 50: loss 0.3203 val roc_auc 0.7393
+22:17:00   epoch 75: loss 0.2480 val roc_auc 0.7379
+22:17:04   epoch 100: loss 0.1797 val roc_auc 0.7332
+22:17:04 grid general__sage__text__mlp__h128_L2_d0.3_lr0.001
+22:17:05   epoch 0: loss 0.7114 val roc_auc 0.5791
+22:17:08   epoch 25: loss 0.4709 val roc_auc 0.7016
+22:17:11   epoch 50: loss 0.3581 val roc_auc 0.7170
+22:17:14   epoch 75: loss 0.3283 val roc_auc 0.7305
+22:17:17   epoch 100: loss 0.3027 val roc_auc 0.7400
+22:17:20   epoch 125: loss 0.2551 val roc_auc 0.7367
+22:17:21 grid general__sage__text__mlp__h128_L2_d0.3_lr0.005
+22:17:21   epoch 0: loss 0.7114 val roc_auc 0.5728
+22:17:24   epoch 25: loss 0.3503 val roc_auc 0.7360
+22:17:27   epoch 50: loss 0.2351 val roc_auc 0.7325
+22:17:30   epoch 75: loss 0.1448 val roc_auc 0.7539
+22:17:33   epoch 100: loss 0.1000 val roc_auc 0.7601
+22:17:36 grid general__sage__text__mlp__h128_L3_d0.3_lr0.001
+22:17:37   epoch 0: loss 0.6981 val roc_auc 0.5750
+22:17:41   epoch 25: loss 0.4892 val roc_auc 0.7090
+22:17:45   epoch 50: loss 0.3900 val roc_auc 0.6885
+22:17:47 grid general__sage__text__mlp__h128_L3_d0.3_lr0.005
+22:17:47   epoch 0: loss 0.6981 val roc_auc 0.5556
+22:17:51   epoch 25: loss 0.4009 val roc_auc 0.6725
+22:17:55   epoch 50: loss 0.3155 val roc_auc 0.7359
+22:17:59   epoch 75: loss 0.2342 val roc_auc 0.7412
+22:18:03   epoch 100: loss 0.2026 val roc_auc 0.7335
+22:18:07   epoch 125: loss 0.1448 val roc_auc 0.7443
+22:18:11 grid general__gat__text__mlp__h64_L2_d0.3_lr0.001
+22:18:11   epoch 0: loss 0.6801 val roc_auc 0.4324
+22:18:17   epoch 25: loss 0.6367 val roc_auc 0.5626
+22:18:22   epoch 50: loss 0.5351 val roc_auc 0.6476
+22:18:28   epoch 75: loss 0.4690 val roc_auc 0.6888
+22:18:33   epoch 100: loss 0.4253 val roc_auc 0.7047
+22:18:38   epoch 125: loss 0.3882 val roc_auc 0.7160
+22:18:44   epoch 150: loss 0.3743 val roc_auc 0.7250
+22:18:49   epoch 175: loss 0.3648 val roc_auc 0.7315
+22:18:55   epoch 200: loss 0.3441 val roc_auc 0.7355
+22:19:01 grid general__gat__text__mlp__h64_L2_d0.3_lr0.005
+22:19:01   epoch 0: loss 0.6801 val roc_auc 0.5716
+22:19:06   epoch 25: loss 0.4652 val roc_auc 0.6928
+22:19:12   epoch 50: loss 0.3834 val roc_auc 0.7288
+22:19:17   epoch 75: loss 0.3102 val roc_auc 0.7370
+22:19:23   epoch 100: loss 0.2648 val roc_auc 0.7308
+22:19:24 grid general__gat__text__mlp__h128_L2_d0.3_lr0.001
+22:19:24   epoch 0: loss 0.6954 val roc_auc 0.5973
+22:19:33   epoch 25: loss 0.5988 val roc_auc 0.5754
+22:19:42   epoch 50: loss 0.4761 val roc_auc 0.6794
+22:19:50   epoch 75: loss 0.4201 val roc_auc 0.6970
+22:19:59   epoch 100: loss 0.3924 val roc_auc 0.7133
+22:20:08   epoch 125: loss 0.3678 val roc_auc 0.7232
+22:20:16   epoch 150: loss 0.3545 val roc_auc 0.7303
+22:20:25   epoch 175: loss 0.3285 val roc_auc 0.7254
+22:20:34   epoch 200: loss 0.2864 val roc_auc 0.7333
+22:20:42   epoch 225: loss 0.2741 val roc_auc 0.7285
+22:20:50 grid general__gat__text__mlp__h128_L2_d0.3_lr0.005
+22:20:50   epoch 0: loss 0.6954 val roc_auc 0.5995
+22:20:59   epoch 25: loss 0.4214 val roc_auc 0.7072
+22:21:07   epoch 50: loss 0.3627 val roc_auc 0.7240
+22:21:16   epoch 75: loss 0.2733 val roc_auc 0.7285
+22:21:25   epoch 100: loss 0.2304 val roc_auc 0.7356
+22:21:33   epoch 125: loss 0.2107 val roc_auc 0.7325
+22:21:37 grid pair_focused__sage__structural__mlp__h64_L2_d0.3_lr0.001
+22:21:37   epoch 0: loss 0.6656 val average_precision 0.5217
+22:21:38   epoch 25: loss 0.5490 val average_precision 0.6189
+22:21:39   epoch 50: loss 0.5366 val average_precision 0.6260
+22:21:40   epoch 75: loss 0.5322 val average_precision 0.6289
+22:21:41   epoch 100: loss 0.5221 val average_precision 0.6330
+22:21:42   epoch 125: loss 0.5235 val average_precision 0.6335
+22:21:43   epoch 150: loss 0.5178 val average_precision 0.6412
+22:21:45   epoch 175: loss 0.5151 val average_precision 0.6462
+22:21:46   epoch 200: loss 0.5168 val average_precision 0.6469
+22:21:47   epoch 225: loss 0.5132 val average_precision 0.6516
+22:21:48   epoch 250: loss 0.5107 val average_precision 0.6582
+22:21:49   epoch 275: loss 0.5145 val average_precision 0.6562
+22:21:50 grid pair_focused__sage__structural__mlp__h64_L2_d0.3_lr0.005
+22:21:50   epoch 0: loss 0.6656 val average_precision 0.5350
+22:21:51   epoch 25: loss 0.5362 val average_precision 0.6208
+22:21:52 grid pair_focused__sage__structural__mlp__h64_L3_d0.3_lr0.001
+22:21:52   epoch 0: loss 0.6997 val average_precision 0.4496
+22:21:53   epoch 25: loss 0.5570 val average_precision 0.5801
+22:21:55   epoch 50: loss 0.5386 val average_precision 0.6099
+22:21:57   epoch 75: loss 0.5332 val average_precision 0.6018
+22:21:58 grid pair_focused__sage__structural__mlp__h64_L3_d0.3_lr0.005
+22:21:58   epoch 0: loss 0.6997 val average_precision 0.4935
+22:22:00   epoch 25: loss 0.5447 val average_precision 0.6058
+22:22:02   epoch 50: loss 0.5296 val average_precision 0.5994
+22:22:02 grid pair_focused__sage__structural__mlp__h128_L2_d0.3_lr0.001
+22:22:02   epoch 0: loss 0.7659 val average_precision 0.5032
+22:22:04   epoch 25: loss 0.5391 val average_precision 0.6070
+22:22:05   epoch 50: loss 0.5288 val average_precision 0.6196
+22:22:07   epoch 75: loss 0.5212 val average_precision 0.6326
+22:22:08   epoch 100: loss 0.5189 val average_precision 0.6464
+22:22:10   epoch 125: loss 0.5108 val average_precision 0.6478
+22:22:11   epoch 150: loss 0.5132 val average_precision 0.6480
+22:22:13   epoch 175: loss 0.5103 val average_precision 0.6569
+22:22:14   epoch 200: loss 0.5092 val average_precision 0.6647
+22:22:16   epoch 225: loss 0.5082 val average_precision 0.6563
+22:22:16 grid pair_focused__sage__structural__mlp__h128_L2_d0.3_lr0.005
+22:22:17   epoch 0: loss 0.7659 val average_precision 0.5125
+22:22:18   epoch 25: loss 0.5341 val average_precision 0.6125
+22:22:20   epoch 50: loss 0.5188 val average_precision 0.6317
+22:22:21 grid pair_focused__sage__structural__mlp__h128_L3_d0.3_lr0.001
+22:22:21   epoch 0: loss 0.6656 val average_precision 0.5388
+22:22:23   epoch 25: loss 0.5375 val average_precision 0.5989
+22:22:26   epoch 50: loss 0.5296 val average_precision 0.5974
+22:22:29   epoch 75: loss 0.5205 val average_precision 0.6151
+22:22:31   epoch 100: loss 0.5146 val average_precision 0.6211
+22:22:34   epoch 125: loss 0.5146 val average_precision 0.6325
+22:22:36   epoch 150: loss 0.5119 val average_precision 0.6434
+22:22:39   epoch 175: loss 0.5138 val average_precision 0.6468
+22:22:41   epoch 200: loss 0.5060 val average_precision 0.6535
+22:22:44   epoch 225: loss 0.5015 val average_precision 0.6428
+22:22:45 grid pair_focused__sage__structural__mlp__h128_L3_d0.3_lr0.005
+22:22:45   epoch 0: loss 0.6656 val average_precision 0.5274
+22:22:47   epoch 25: loss 0.5325 val average_precision 0.5876
+22:22:50   epoch 50: loss 0.5204 val average_precision 0.6059
+22:22:52   epoch 75: loss 0.5196 val average_precision 0.6091
+22:22:55   epoch 100: loss 0.5113 val average_precision 0.6200
+22:22:57   epoch 125: loss 0.5147 val average_precision 0.6218
+22:22:58 grid pair_focused__gat__structural__mlp__h64_L2_d0.3_lr0.001
+22:22:59   epoch 0: loss 0.6653 val average_precision 0.5982
+22:23:04   epoch 25: loss 0.5581 val average_precision 0.5136
+22:23:05 grid pair_focused__gat__structural__mlp__h64_L2_d0.3_lr0.005
+22:23:06   epoch 0: loss 0.6653 val average_precision 0.5045
+22:23:11   epoch 25: loss 0.5405 val average_precision 0.5624
+22:23:16   epoch 50: loss 0.5245 val average_precision 0.5832
+22:23:22   epoch 75: loss 0.5230 val average_precision 0.5822
+22:23:27   epoch 100: loss 0.5192 val average_precision 0.5872
+22:23:28 grid pair_focused__gat__structural__mlp__h128_L2_d0.3_lr0.001
+22:23:28   epoch 0: loss 0.6834 val average_precision 0.5169
+22:23:36   epoch 25: loss 0.5475 val average_precision 0.5456
+22:23:45   epoch 50: loss 0.5460 val average_precision 0.5704
+22:23:53   epoch 75: loss 0.5366 val average_precision 0.5771
+22:24:02   epoch 100: loss 0.5335 val average_precision 0.5807
+22:24:10   epoch 125: loss 0.5302 val average_precision 0.5850
+22:24:19   epoch 150: loss 0.5279 val average_precision 0.5894
+22:24:28   epoch 175: loss 0.5197 val average_precision 0.6032
+22:24:36   epoch 200: loss 0.5206 val average_precision 0.5977
+22:24:38 grid pair_focused__gat__structural__mlp__h128_L2_d0.3_lr0.005
+22:24:38   epoch 0: loss 0.6834 val average_precision 0.5169
+22:24:47   epoch 25: loss 0.5353 val average_precision 0.5773
+22:24:55   epoch 50: loss 0.5305 val average_precision 0.5769
+22:25:04   epoch 75: loss 0.5220 val average_precision 0.5845
+22:25:12   epoch 100: loss 0.5205 val average_precision 0.5973
+22:25:21   epoch 125: loss 0.5178 val average_precision 0.5902
+22:25:26 grid pair_focused__sage__text__mlp__h64_L2_d0.3_lr0.001
+22:25:26   epoch 0: loss 0.6677 val average_precision 0.5635
+22:25:28   epoch 25: loss 0.5500 val average_precision 0.5736
+22:25:31   epoch 50: loss 0.5363 val average_precision 0.6024
+22:25:34   epoch 75: loss 0.5211 val average_precision 0.6134
+22:25:36   epoch 100: loss 0.5030 val average_precision 0.6241
+22:25:39   epoch 125: loss 0.4901 val average_precision 0.6278
+22:25:41   epoch 150: loss 0.4732 val average_precision 0.6329
+22:25:44   epoch 175: loss 0.4647 val average_precision 0.6355
+22:25:46   epoch 200: loss 0.4510 val average_precision 0.6399
+22:25:49   epoch 225: loss 0.4325 val average_precision 0.6432
+22:25:51   epoch 250: loss 0.4290 val average_precision 0.6365
+22:25:54   epoch 275: loss 0.4277 val average_precision 0.6337
+22:25:56 grid pair_focused__sage__text__mlp__h64_L2_d0.3_lr0.005
+22:25:56   epoch 0: loss 0.6677 val average_precision 0.5524
+22:25:59   epoch 25: loss 0.5344 val average_precision 0.6174
+22:26:01   epoch 50: loss 0.5027 val average_precision 0.6302
+22:26:04   epoch 75: loss 0.4762 val average_precision 0.6383
+22:26:07   epoch 100: loss 0.4592 val average_precision 0.6433
+22:26:09   epoch 125: loss 0.4329 val average_precision 0.6299
+22:26:12   epoch 150: loss 0.4277 val average_precision 0.6454
+22:26:14   epoch 175: loss 0.4162 val average_precision 0.6226
+22:26:16 grid pair_focused__sage__text__mlp__h64_L3_d0.3_lr0.001
+22:26:16   epoch 0: loss 0.7068 val average_precision 0.5845
+22:26:19   epoch 25: loss 0.5629 val average_precision 0.5586
+22:26:20 grid pair_focused__sage__text__mlp__h64_L3_d0.3_lr0.005
+22:26:21   epoch 0: loss 0.7068 val average_precision 0.5554
+22:26:24   epoch 25: loss 0.5348 val average_precision 0.5845
+22:26:27   epoch 50: loss 0.5138 val average_precision 0.6055
+22:26:31   epoch 75: loss 0.4872 val average_precision 0.6119
+22:26:34   epoch 100: loss 0.4641 val average_precision 0.6185
+22:26:35 grid pair_focused__sage__text__mlp__h128_L2_d0.3_lr0.001
+22:26:36   epoch 0: loss 0.7114 val average_precision 0.5680
+22:26:39   epoch 25: loss 0.5524 val average_precision 0.5825
+22:26:42   epoch 50: loss 0.5288 val average_precision 0.6106
+22:26:45   epoch 75: loss 0.5183 val average_precision 0.6164
+22:26:48   epoch 100: loss 0.5062 val average_precision 0.6207
+22:26:51   epoch 125: loss 0.4850 val average_precision 0.6209
+22:26:54   epoch 150: loss 0.4656 val average_precision 0.6340
+22:26:57   epoch 175: loss 0.4560 val average_precision 0.6511
+22:27:00   epoch 200: loss 0.4413 val average_precision 0.6495
+22:27:02 grid pair_focused__sage__text__mlp__h128_L2_d0.3_lr0.005
+22:27:02   epoch 0: loss 0.7114 val average_precision 0.5674
+22:27:05   epoch 25: loss 0.5241 val average_precision 0.6031
+22:27:08   epoch 50: loss 0.4960 val average_precision 0.6242
+22:27:12   epoch 75: loss 0.4720 val average_precision 0.6397
+22:27:15   epoch 100: loss 0.4454 val average_precision 0.6520
+22:27:16 grid pair_focused__sage__text__mlp__h128_L3_d0.3_lr0.001
+22:27:17   epoch 0: loss 0.6981 val average_precision 0.5266
+22:27:21   epoch 25: loss 0.5433 val average_precision 0.5632
+22:27:25   epoch 50: loss 0.5293 val average_precision 0.5915
+22:27:29   epoch 75: loss 0.5142 val average_precision 0.6040
+22:27:33   epoch 100: loss 0.4929 val average_precision 0.6107
+22:27:37   epoch 125: loss 0.4718 val average_precision 0.6261
+22:27:41 grid pair_focused__sage__text__mlp__h128_L3_d0.3_lr0.005
+22:27:41   epoch 0: loss 0.6981 val average_precision 0.5305
+22:27:45   epoch 25: loss 0.5642 val average_precision 0.4936
+22:27:49   epoch 50: loss 0.5169 val average_precision 0.5905
+22:27:53   epoch 75: loss 0.4586 val average_precision 0.6260
+22:27:57   epoch 100: loss 0.4219 val average_precision 0.6252
+22:28:01   epoch 125: loss 0.3971 val average_precision 0.6197
+22:28:04 grid pair_focused__gat__text__mlp__h64_L2_d0.3_lr0.001
+22:28:04   epoch 0: loss 0.6799 val average_precision 0.4856
+22:28:09   epoch 25: loss 0.5750 val average_precision 0.5281
+22:28:15   epoch 50: loss 0.5435 val average_precision 0.5519
+22:28:20   epoch 75: loss 0.5391 val average_precision 0.5586
+22:28:26   epoch 100: loss 0.5338 val average_precision 0.5726
+22:28:31   epoch 125: loss 0.5307 val average_precision 0.5847
+22:28:37   epoch 150: loss 0.5208 val average_precision 0.5953
+22:28:42   epoch 175: loss 0.5163 val average_precision 0.5941
+22:28:48   epoch 200: loss 0.5141 val average_precision 0.5956
+22:28:51 grid pair_focused__gat__text__mlp__h64_L2_d0.3_lr0.005
+22:28:51   epoch 0: loss 0.6799 val average_precision 0.5127
+22:28:57   epoch 25: loss 0.5453 val average_precision 0.5592
+22:29:02   epoch 50: loss 0.5228 val average_precision 0.5885
+22:29:08   epoch 75: loss 0.5116 val average_precision 0.5901
+22:29:11 grid pair_focused__gat__text__mlp__h128_L2_d0.3_lr0.001
+22:29:11   epoch 0: loss 0.6954 val average_precision 0.5278
+22:29:20   epoch 25: loss 0.5578 val average_precision 0.5313
+22:29:29   epoch 50: loss 0.5452 val average_precision 0.5511
+22:29:37   epoch 75: loss 0.5367 val average_precision 0.5608
+22:29:46   epoch 100: loss 0.5292 val average_precision 0.5749
+22:29:55   epoch 125: loss 0.5225 val average_precision 0.5899
+22:30:03   epoch 150: loss 0.5193 val average_precision 0.5945
+22:30:12   epoch 175: loss 0.5125 val average_precision 0.5960
+22:30:19 grid pair_focused__gat__text__mlp__h128_L2_d0.3_lr0.005
+22:30:19   epoch 0: loss 0.6954 val average_precision 0.5047
+22:30:28   epoch 25: loss 0.5377 val average_precision 0.5571
+22:30:37   epoch 50: loss 0.5191 val average_precision 0.5957
+22:30:45   epoch 75: loss 0.5089 val average_precision 0.5872
+22:30:54   epoch 100: loss 0.5055 val average_precision 0.6000
+22:31:03   epoch 125: loss 0.4994 val average_precision 0.5904
+22:31:12   epoch 150: loss 0.4989 val average_precision 0.5961
+22:31:14 final gnn_general_gat_structural seed 0
+22:31:14   epoch 0: loss 0.6834 val roc_auc 0.6129
+22:31:22   epoch 25: loss 0.5402 val roc_auc 0.6627
+22:31:31   epoch 50: loss 0.4486 val roc_auc 0.7070
+22:31:39   epoch 75: loss 0.4212 val roc_auc 0.7253
+22:31:48   epoch 100: loss 0.4047 val roc_auc 0.7345
+22:31:56   epoch 125: loss 0.3771 val roc_auc 0.7339
+22:32:05   epoch 150: loss 0.3735 val roc_auc 0.7334
+22:33:11 final gnn_general_gat_structural seed 1
+22:33:11   epoch 0: loss 0.7162 val roc_auc 0.5704
+22:33:20   epoch 25: loss 0.5311 val roc_auc 0.6725
+22:33:28   epoch 50: loss 0.4481 val roc_auc 0.7076
+22:33:37   epoch 75: loss 0.4208 val roc_auc 0.7272
+22:33:46   epoch 100: loss 0.3959 val roc_auc 0.7377
+22:33:54   epoch 125: loss 0.3769 val roc_auc 0.7417
+22:34:58 final gnn_general_gat_structural seed 2
+22:34:59   epoch 0: loss 0.6887 val roc_auc 0.6581
+22:35:07   epoch 25: loss 0.5285 val roc_auc 0.6798
+22:35:16   epoch 50: loss 0.4367 val roc_auc 0.7134
+22:35:24   epoch 75: loss 0.4090 val roc_auc 0.7333
+22:35:33   epoch 100: loss 0.3943 val roc_auc 0.7361
+22:35:42   epoch 125: loss 0.3761 val roc_auc 0.7336
+22:36:47 final gnn_general_gat_structural seed 3
+22:36:47   epoch 0: loss 0.7139 val roc_auc 0.5575
+22:36:56   epoch 25: loss 0.4901 val roc_auc 0.6735
+22:37:04   epoch 50: loss 0.4356 val roc_auc 0.7183
+22:37:13   epoch 75: loss 0.4051 val roc_auc 0.7293
+22:37:22   epoch 100: loss 0.4013 val roc_auc 0.7319
+22:37:30   epoch 125: loss 0.3740 val roc_auc 0.7337
+22:37:39   epoch 150: loss 0.3691 val roc_auc 0.7399
+22:37:47   epoch 175: loss 0.3674 val roc_auc 0.7420
+22:37:56   epoch 200: loss 0.3607 val roc_auc 0.7478
+22:39:03 final gnn_general_gat_structural seed 4
+22:39:03   epoch 0: loss 0.7045 val roc_auc 0.5296
+22:39:12   epoch 25: loss 0.5118 val roc_auc 0.6704
+22:39:21   epoch 50: loss 0.4514 val roc_auc 0.7053
+22:39:29   epoch 75: loss 0.4194 val roc_auc 0.7251
+22:39:38   epoch 100: loss 0.3940 val roc_auc 0.7361
+22:39:46   epoch 125: loss 0.3885 val roc_auc 0.7360
+22:40:54 final gnn_general_gat_text seed 0
+22:40:54   epoch 0: loss 0.6954 val roc_auc 0.5995
+22:41:03   epoch 25: loss 0.4214 val roc_auc 0.7072
+22:41:12   epoch 50: loss 0.3627 val roc_auc 0.7240
+22:41:20   epoch 75: loss 0.2733 val roc_auc 0.7285
+22:41:29   epoch 100: loss 0.2304 val roc_auc 0.7356
+22:41:38   epoch 125: loss 0.2107 val roc_auc 0.7325
+22:42:40 final gnn_general_gat_text seed 1
+22:42:41   epoch 0: loss 0.6798 val roc_auc 0.6120
+22:42:49   epoch 25: loss 0.4222 val roc_auc 0.7017
+22:42:58   epoch 50: loss 0.3534 val roc_auc 0.7263
+22:43:07   epoch 75: loss 0.2780 val roc_auc 0.7340
+22:44:11 final gnn_general_gat_text seed 2
+22:44:11   epoch 0: loss 0.7062 val roc_auc 0.6523
+22:44:20   epoch 25: loss 0.4227 val roc_auc 0.7037
+22:44:29   epoch 50: loss 0.3379 val roc_auc 0.7137
+22:44:38   epoch 75: loss 0.2656 val roc_auc 0.7206
+22:45:43 final gnn_general_gat_text seed 3
+22:45:43   epoch 0: loss 0.7073 val roc_auc 0.5895
+22:45:52   epoch 25: loss 0.4150 val roc_auc 0.7135
+22:46:01   epoch 50: loss 0.3421 val roc_auc 0.7251
+22:46:10   epoch 75: loss 0.2645 val roc_auc 0.7356
+22:46:18   epoch 100: loss 0.2214 val roc_auc 0.7394
+22:46:27   epoch 125: loss 0.1954 val roc_auc 0.7356
+22:47:35 final gnn_general_gat_text seed 4
+22:47:36   epoch 0: loss 0.6772 val roc_auc 0.5758
+22:47:44   epoch 25: loss 0.4204 val roc_auc 0.7002
+22:47:53   epoch 50: loss 0.3257 val roc_auc 0.7134
+22:48:02   epoch 75: loss 0.2577 val roc_auc 0.7254
+22:49:06 final gnn_general_sage_structural seed 0
+22:49:06   epoch 0: loss 0.7355 val roc_auc 0.5182
+22:49:08   epoch 25: loss 0.3636 val roc_auc 0.7423
+22:49:09   epoch 50: loss 0.3443 val roc_auc 0.7392
+22:49:11   epoch 75: loss 0.3461 val roc_auc 0.7457
+22:49:12   epoch 100: loss 0.3207 val roc_auc 0.7318
+22:49:14   epoch 125: loss 0.3255 val roc_auc 0.7265
+22:50:11 final gnn_general_sage_structural seed 1
+22:50:12   epoch 0: loss 0.7298 val roc_auc 0.6355
+22:50:13   epoch 25: loss 0.3653 val roc_auc 0.7410
+22:50:15   epoch 50: loss 0.3465 val roc_auc 0.7478
+22:50:16   epoch 75: loss 0.3418 val roc_auc 0.7403
+22:51:13 final gnn_general_sage_structural seed 2
+22:51:13   epoch 0: loss 0.7146 val roc_auc 0.5876
+22:51:14   epoch 25: loss 0.3706 val roc_auc 0.7399
+22:52:11 final gnn_general_sage_structural seed 3
+22:52:11   epoch 0: loss 0.7241 val roc_auc 0.5043
+22:52:12   epoch 25: loss 0.3627 val roc_auc 0.7438
+22:52:14   epoch 50: loss 0.3485 val roc_auc 0.7500
+22:52:15   epoch 75: loss 0.3371 val roc_auc 0.7422
+22:52:17   epoch 100: loss 0.3271 val roc_auc 0.7380
+22:53:14 final gnn_general_sage_structural seed 4
+22:53:14   epoch 0: loss 0.6992 val roc_auc 0.6285
+22:53:16   epoch 25: loss 0.3748 val roc_auc 0.7397
+22:53:17   epoch 50: loss 0.3518 val roc_auc 0.7407
+22:53:19   epoch 75: loss 0.3393 val roc_auc 0.7500
+22:53:20   epoch 100: loss 0.3362 val roc_auc 0.7385
+22:54:20 final gnn_general_sage_text seed 0
+22:54:20   epoch 0: loss 0.7114 val roc_auc 0.5728
+22:54:23   epoch 25: loss 0.3503 val roc_auc 0.7360
+22:54:26   epoch 50: loss 0.2351 val roc_auc 0.7325
+22:54:29   epoch 75: loss 0.1448 val roc_auc 0.7539
+22:54:32   epoch 100: loss 0.1000 val roc_auc 0.7601
+22:55:34 final gnn_general_sage_text seed 1
+22:55:34   epoch 0: loss 0.6800 val roc_auc 0.6024
+22:55:37   epoch 25: loss 0.3422 val roc_auc 0.7287
+22:55:40   epoch 50: loss 0.2287 val roc_auc 0.7334
+22:55:43   epoch 75: loss 0.1606 val roc_auc 0.7487
+22:55:46   epoch 100: loss 0.1212 val roc_auc 0.7490
+22:56:44 final gnn_general_sage_text seed 2
+22:56:44   epoch 0: loss 0.7041 val roc_auc 0.6588
+22:56:47   epoch 25: loss 0.3401 val roc_auc 0.7277
+22:56:50   epoch 50: loss 0.2342 val roc_auc 0.7380
+22:56:53   epoch 75: loss 0.1637 val roc_auc 0.7436
+22:56:56   epoch 100: loss 0.1082 val roc_auc 0.7457
+22:56:59   epoch 125: loss 0.0997 val roc_auc 0.7497
+22:57:03   epoch 150: loss 0.0638 val roc_auc 0.7541
+22:58:01 final gnn_general_sage_text seed 3
+22:58:01   epoch 0: loss 0.6986 val roc_auc 0.5578
+22:58:04   epoch 25: loss 0.3394 val roc_auc 0.7395
+22:58:07   epoch 50: loss 0.2252 val roc_auc 0.7346
+22:58:11   epoch 75: loss 0.1345 val roc_auc 0.7489
+22:58:14   epoch 100: loss 0.0951 val roc_auc 0.7549
+22:58:17   epoch 125: loss 0.0731 val roc_auc 0.7572
+22:59:20 final gnn_general_sage_text seed 4
+22:59:20   epoch 0: loss 0.7002 val roc_auc 0.6320
+22:59:23   epoch 25: loss 0.3390 val roc_auc 0.7292
+22:59:26   epoch 50: loss 0.2516 val roc_auc 0.7307
+22:59:29   epoch 75: loss 0.1741 val roc_auc 0.7421
+22:59:32   epoch 100: loss 0.1211 val roc_auc 0.7473
+22:59:36   epoch 125: loss 0.0889 val roc_auc 0.7467
+22:59:39   epoch 150: loss 0.0678 val roc_auc 0.7495
+22:59:42   epoch 175: loss 0.0521 val roc_auc 0.7424
+23:00:41 final gnn_pair_focused_gat_structural seed 0
+23:00:41   epoch 0: loss 0.6834 val average_precision 0.5169
+23:00:50   epoch 25: loss 0.5353 val average_precision 0.5773
+23:00:59   epoch 50: loss 0.5305 val average_precision 0.5769
+23:01:07   epoch 75: loss 0.5220 val average_precision 0.5845
+23:01:16   epoch 100: loss 0.5205 val average_precision 0.5973
+23:01:25   epoch 125: loss 0.5178 val average_precision 0.5902
+23:02:27 final gnn_pair_focused_gat_structural seed 1
+23:02:27   epoch 0: loss 0.7165 val average_precision 0.5219
+23:02:36   epoch 25: loss 0.5431 val average_precision 0.5698
+23:02:44   epoch 50: loss 0.5243 val average_precision 0.5742
+23:02:53   epoch 75: loss 0.5256 val average_precision 0.5718
+23:03:52 final gnn_pair_focused_gat_structural seed 2
+23:03:52   epoch 0: loss 0.6888 val average_precision 0.5134
+23:04:01   epoch 25: loss 0.5318 val average_precision 0.5835
+23:04:10   epoch 50: loss 0.5257 val average_precision 0.5845
+23:05:11 final gnn_pair_focused_gat_structural seed 3
+23:05:12   epoch 0: loss 0.7138 val average_precision 0.4965
+23:05:20   epoch 25: loss 0.5355 val average_precision 0.5787
+23:05:29   epoch 50: loss 0.5283 val average_precision 0.5859
+23:05:38   epoch 75: loss 0.5184 val average_precision 0.5868
+23:05:46   epoch 100: loss 0.5220 val average_precision 0.6025
+23:05:55   epoch 125: loss 0.5195 val average_precision 0.5824
+23:06:55 final gnn_pair_focused_gat_structural seed 4
+23:06:55   epoch 0: loss 0.7049 val average_precision 0.5151
+23:07:03   epoch 25: loss 0.5335 val average_precision 0.5795
+23:07:12   epoch 50: loss 0.5272 val average_precision 0.5771
+23:08:18 final gnn_pair_focused_gat_text seed 0
+23:08:19   epoch 0: loss 0.6799 val average_precision 0.5127
+23:08:24   epoch 25: loss 0.5453 val average_precision 0.5592
+23:08:30   epoch 50: loss 0.5228 val average_precision 0.5885
+23:08:35   epoch 75: loss 0.5116 val average_precision 0.5901
+23:09:36 final gnn_pair_focused_gat_text seed 1
+23:09:36   epoch 0: loss 0.7036 val average_precision 0.5152
+23:09:42   epoch 25: loss 0.5450 val average_precision 0.5562
+23:09:47   epoch 50: loss 0.5276 val average_precision 0.6002
+23:09:53   epoch 75: loss 0.5107 val average_precision 0.5894
+23:10:55 final gnn_pair_focused_gat_text seed 2
+23:10:56   epoch 0: loss 0.6950 val average_precision 0.4982
+23:11:01   epoch 25: loss 0.5438 val average_precision 0.5559
+23:11:07   epoch 50: loss 0.5282 val average_precision 0.5838
+23:11:12   epoch 75: loss 0.5162 val average_precision 0.5866
+23:12:12 final gnn_pair_focused_gat_text seed 3
+23:12:12   epoch 0: loss 0.6673 val average_precision 0.4911
+23:12:18   epoch 25: loss 0.5450 val average_precision 0.5510
+23:12:23   epoch 50: loss 0.5244 val average_precision 0.5894
+23:12:29   epoch 75: loss 0.5096 val average_precision 0.5953
+23:12:34   epoch 100: loss 0.5073 val average_precision 0.5924
+23:12:40   epoch 125: loss 0.5058 val average_precision 0.5853
+23:13:42 final gnn_pair_focused_gat_text seed 4
+23:13:42   epoch 0: loss 0.6783 val average_precision 0.4875
+23:13:48   epoch 25: loss 0.5395 val average_precision 0.5554
+23:13:53   epoch 50: loss 0.5245 val average_precision 0.6014
+23:13:59   epoch 75: loss 0.5107 val average_precision 0.5896
+23:15:00 final gnn_pair_focused_sage_structural seed 0
+23:15:00   epoch 0: loss 0.7659 val average_precision 0.5032
+23:15:02   epoch 25: loss 0.5391 val average_precision 0.6070
+23:15:03   epoch 50: loss 0.5288 val average_precision 0.6196
+23:15:05   epoch 75: loss 0.5212 val average_precision 0.6326
+23:15:06   epoch 100: loss 0.5189 val average_precision 0.6464
+23:15:08   epoch 125: loss 0.5108 val average_precision 0.6478
+23:15:09   epoch 150: loss 0.5132 val average_precision 0.6480
+23:15:11   epoch 175: loss 0.5103 val average_precision 0.6569
+23:15:12   epoch 200: loss 0.5092 val average_precision 0.6647
+23:15:14   epoch 225: loss 0.5082 val average_precision 0.6563
+23:16:12 final gnn_pair_focused_sage_structural seed 1
+23:16:12   epoch 0: loss 0.7341 val average_precision 0.5569
+23:16:13   epoch 25: loss 0.5430 val average_precision 0.6163
+23:16:15   epoch 50: loss 0.5246 val average_precision 0.6237
+23:16:16   epoch 75: loss 0.5244 val average_precision 0.6327
+23:16:18   epoch 100: loss 0.5189 val average_precision 0.6439
+23:16:19   epoch 125: loss 0.5172 val average_precision 0.6498
+23:16:21   epoch 150: loss 0.5123 val average_precision 0.6562
+23:16:22   epoch 175: loss 0.5105 val average_precision 0.6551
+23:16:24   epoch 200: loss 0.5093 val average_precision 0.6520
+23:17:22 final gnn_pair_focused_sage_structural seed 2
+23:17:22   epoch 0: loss 0.6949 val average_precision 0.5309
+23:17:24   epoch 25: loss 0.5421 val average_precision 0.6117
+23:17:25   epoch 50: loss 0.5269 val average_precision 0.6242
+23:17:27   epoch 75: loss 0.5281 val average_precision 0.6302
+23:17:28   epoch 100: loss 0.5139 val average_precision 0.6352
+23:17:30   epoch 125: loss 0.5148 val average_precision 0.6378
+23:17:31   epoch 150: loss 0.5140 val average_precision 0.6499
+23:17:33   epoch 175: loss 0.5079 val average_precision 0.6554
+23:17:34   epoch 200: loss 0.5086 val average_precision 0.6552
+23:18:33 final gnn_pair_focused_sage_structural seed 3
+23:18:34   epoch 0: loss 0.8162 val average_precision 0.4589
+23:18:35   epoch 25: loss 0.5411 val average_precision 0.6086
+23:18:37   epoch 50: loss 0.5314 val average_precision 0.6170
+23:18:38   epoch 75: loss 0.5214 val average_precision 0.6280
+23:18:40   epoch 100: loss 0.5178 val average_precision 0.6460
+23:18:41   epoch 125: loss 0.5183 val average_precision 0.6503
+23:18:43   epoch 150: loss 0.5190 val average_precision 0.6488
+23:18:44   epoch 175: loss 0.5144 val average_precision 0.6516
+23:18:46   epoch 200: loss 0.5147 val average_precision 0.6596
+23:18:47   epoch 225: loss 0.5109 val average_precision 0.6564
+23:19:47 final gnn_pair_focused_sage_structural seed 4
+23:19:47   epoch 0: loss 0.6401 val average_precision 0.5924
+23:19:48   epoch 25: loss 0.5374 val average_precision 0.6169
+23:19:50   epoch 50: loss 0.5291 val average_precision 0.6176
+23:19:52   epoch 75: loss 0.5189 val average_precision 0.6345
+23:19:53   epoch 100: loss 0.5168 val average_precision 0.6411
+23:19:55   epoch 125: loss 0.5125 val average_precision 0.6428
+23:19:56   epoch 150: loss 0.5113 val average_precision 0.6476
+23:19:58   epoch 175: loss 0.5136 val average_precision 0.6524
+23:19:59   epoch 200: loss 0.5123 val average_precision 0.6556
+23:20:01   epoch 225: loss 0.5073 val average_precision 0.6540
+23:20:02   epoch 250: loss 0.5100 val average_precision 0.6525
+23:21:02 final gnn_pair_focused_sage_text seed 0
+23:21:03   epoch 0: loss 0.7114 val average_precision 0.5674
+23:21:06   epoch 25: loss 0.5241 val average_precision 0.6031
+23:21:09   epoch 50: loss 0.4960 val average_precision 0.6242
+23:21:12   epoch 75: loss 0.4720 val average_precision 0.6397
+23:21:15   epoch 100: loss 0.4454 val average_precision 0.6520
+23:22:15 final gnn_pair_focused_sage_text seed 1
+23:22:16   epoch 0: loss 0.6804 val average_precision 0.5685
+23:22:19   epoch 25: loss 0.5253 val average_precision 0.5999
+23:22:22   epoch 50: loss 0.4985 val average_precision 0.6288
+23:22:25   epoch 75: loss 0.4704 val average_precision 0.6317
+23:23:25 final gnn_pair_focused_sage_text seed 2
+23:23:25   epoch 0: loss 0.7050 val average_precision 0.5795
+23:23:28   epoch 25: loss 0.5348 val average_precision 0.6074
+23:23:31   epoch 50: loss 0.5072 val average_precision 0.6203
+23:23:34   epoch 75: loss 0.4983 val average_precision 0.6303
+23:23:37   epoch 100: loss 0.4535 val average_precision 0.6361
+23:23:40   epoch 125: loss 0.4385 val average_precision 0.6335
+23:23:44   epoch 150: loss 0.4558 val average_precision 0.6322
+23:24:41 final gnn_pair_focused_sage_text seed 3
+23:24:41   epoch 0: loss 0.6983 val average_precision 0.5618
+23:24:44   epoch 25: loss 0.5384 val average_precision 0.5970
+23:24:47   epoch 50: loss 0.5061 val average_precision 0.6193
+23:24:50   epoch 75: loss 0.4749 val average_precision 0.6315
+23:24:53   epoch 100: loss 0.4495 val average_precision 0.6460
+23:24:56   epoch 125: loss 0.4462 val average_precision 0.6398
+23:25:00   epoch 150: loss 0.4114 val average_precision 0.6432
+23:25:57 final gnn_pair_focused_sage_text seed 4
+23:25:57   epoch 0: loss 0.7009 val average_precision 0.5926
+23:26:00   epoch 25: loss 0.5283 val average_precision 0.6032
+23:26:03   epoch 50: loss 0.4921 val average_precision 0.6218
+23:26:06   epoch 75: loss 0.4707 val average_precision 0.6453
+23:26:09   epoch 100: loss 0.4416 val average_precision 0.6449
+23:26:13   epoch 125: loss 0.4133 val average_precision 0.6442
+23:27:11 ablation gnn_general_sage_text_dot seed 0
+23:27:11   epoch 0: loss 0.9561 val roc_auc 0.5755
+23:27:14   epoch 25: loss 0.6239 val roc_auc 0.6581
+23:28:12 ablation gnn_general_sage_text_dot seed 1
+23:28:12   epoch 0: loss 0.9652 val roc_auc 0.6308
+23:28:15   epoch 25: loss 0.6222 val roc_auc 0.6665
+23:29:12 ablation gnn_general_sage_text_dot seed 2
+23:29:12   epoch 0: loss 0.9438 val roc_auc 0.5752
+23:29:15   epoch 25: loss 0.6175 val roc_auc 0.6717
+23:29:18   epoch 50: loss 0.5680 val roc_auc 0.6952
+23:30:16 ablation gnn_general_sage_text_dot seed 3
+23:30:16   epoch 0: loss 0.9155 val roc_auc 0.5838
+23:30:19   epoch 25: loss 0.6157 val roc_auc 0.6762
+23:31:16 ablation gnn_general_sage_text_dot seed 4
+23:31:16   epoch 0: loss 0.9218 val roc_auc 0.5808
+23:31:19   epoch 25: loss 0.6117 val roc_auc 0.6865
+23:31:22   epoch 50: loss 0.5588 val roc_auc 0.7032
+23:31:25   epoch 75: loss 0.4992 val roc_auc 0.6903
+23:32:22 ablation gnn_pair_focused_sage_structural_dot seed 0
+23:32:22   epoch 0: loss 50.8097 val average_precision 0.5491
+23:32:23   epoch 25: loss 2.2430 val average_precision 0.5687
+23:32:25   epoch 50: loss 1.3742 val average_precision 0.5629
+23:33:20 ablation gnn_pair_focused_sage_structural_dot seed 1
+23:33:20   epoch 0: loss 42.0076 val average_precision 0.5115
+23:33:21   epoch 25: loss 1.8961 val average_precision 0.5471
+23:34:18 ablation gnn_pair_focused_sage_structural_dot seed 2
+23:34:18   epoch 0: loss 36.4343 val average_precision 0.5592
+23:34:20   epoch 25: loss 2.0242 val average_precision 0.5465
+23:35:17 ablation gnn_pair_focused_sage_structural_dot seed 3
+23:35:17   epoch 0: loss 71.0739 val average_precision 0.5096
+23:35:19   epoch 25: loss 2.5089 val average_precision 0.5721
+23:35:20   epoch 50: loss 1.4245 val average_precision 0.5653
+23:36:17 ablation gnn_pair_focused_sage_structural_dot seed 4
+23:36:17   epoch 0: loss 55.2870 val average_precision 0.5146
+23:36:19   epoch 25: loss 2.1611 val average_precision 0.5281
+23:37:16 determinism re-run gnn_pair_focused_sage_structural seed 0
+23:37:16   epoch 0: loss 0.7659 val average_precision 0.5032
+23:37:18   epoch 25: loss 0.5391 val average_precision 0.6070
+23:37:19   epoch 50: loss 0.5288 val average_precision 0.6196
+23:37:21   epoch 75: loss 0.5212 val average_precision 0.6326
+23:37:22   epoch 100: loss 0.5189 val average_precision 0.6464
+23:37:24   epoch 125: loss 0.5108 val average_precision 0.6478
+23:37:26   epoch 150: loss 0.5132 val average_precision 0.6480
+23:37:27   epoch 175: loss 0.5103 val average_precision 0.6569
+23:37:29   epoch 200: loss 0.5092 val average_precision 0.6647
+23:37:30   epoch 225: loss 0.5082 val average_precision 0.6563
+23:37:32   epoch 0: loss 0.7662 val average_precision 0.5025
+23:37:33   epoch 25: loss 0.5376 val average_precision 0.6075
+23:37:35   epoch 50: loss 0.5290 val average_precision 0.6185
+23:37:36   epoch 75: loss 0.5153 val average_precision 0.6288
+23:37:38   epoch 100: loss 0.5211 val average_precision 0.6404
+23:37:39   epoch 125: loss 0.5165 val average_precision 0.6443
+23:37:41   epoch 150: loss 0.5153 val average_precision 0.6447
+23:37:42 oof gnn_pair_focused_sage_structural seed 0 fold 0
+23:37:42   epoch 0: loss 0.7651 val average_precision 0.5047
+23:37:43   epoch 25: loss 0.5328 val average_precision 0.6078
+23:37:45   epoch 50: loss 0.5216 val average_precision 0.6254
+23:37:46   epoch 75: loss 0.5086 val average_precision 0.6340
+23:37:48   epoch 100: loss 0.5156 val average_precision 0.6447
+23:37:49   epoch 125: loss 0.5111 val average_precision 0.6490
+23:37:51   epoch 150: loss 0.5099 val average_precision 0.6514
+23:37:52 oof gnn_pair_focused_sage_structural seed 0 fold 1
+23:37:52   epoch 0: loss 0.7669 val average_precision 0.5039
+23:37:54   epoch 25: loss 0.5296 val average_precision 0.6076
+23:37:55   epoch 50: loss 0.5192 val average_precision 0.6256
+23:37:57   epoch 75: loss 0.5051 val average_precision 0.6367
+23:37:58   epoch 100: loss 0.5108 val average_precision 0.6478
+23:38:00   epoch 125: loss 0.5037 val average_precision 0.6543
+23:38:01   epoch 150: loss 0.5033 val average_precision 0.6501
+23:38:02   epoch 175: loss 0.5054 val average_precision 0.6574
+23:38:04   epoch 200: loss 0.5047 val average_precision 0.6574
+23:38:05   epoch 225: loss 0.5040 val average_precision 0.6623
+23:38:07   epoch 250: loss 0.5026 val average_precision 0.6537
+23:38:08   epoch 275: loss 0.4975 val average_precision 0.6637
+23:38:09 oof gnn_pair_focused_sage_structural seed 0 fold 2
+23:38:09   epoch 0: loss 0.7670 val average_precision 0.5028
+23:38:10   epoch 25: loss 0.5356 val average_precision 0.6071
+23:38:12   epoch 50: loss 0.5252 val average_precision 0.6205
+23:38:13   epoch 75: loss 0.5124 val average_precision 0.6300
+23:38:15   epoch 100: loss 0.5178 val average_precision 0.6375
+23:38:16   epoch 125: loss 0.5131 val average_precision 0.6450
+23:38:18   epoch 150: loss 0.5144 val average_precision 0.6487
+23:38:19 oof gnn_pair_focused_sage_structural seed 0 fold 3
+23:38:19   epoch 0: loss 0.7646 val average_precision 0.5031
+23:38:20   epoch 25: loss 0.5411 val average_precision 0.6090
+23:38:22   epoch 50: loss 0.5334 val average_precision 0.6236
+23:38:23   epoch 75: loss 0.5205 val average_precision 0.6330
+23:38:25   epoch 100: loss 0.5262 val average_precision 0.6450
+23:38:26   epoch 125: loss 0.5206 val average_precision 0.6497
+23:38:28   epoch 150: loss 0.5214 val average_precision 0.6566
+23:38:29   epoch 175: loss 0.5248 val average_precision 0.6538
+23:38:31   epoch 200: loss 0.5195 val average_precision 0.6544
+23:38:31 oof gnn_pair_focused_sage_structural seed 0 fold 4
+23:38:31   epoch 0: loss 0.7360 val average_precision 0.5564
+23:38:33   epoch 25: loss 0.5455 val average_precision 0.6150
+23:38:34   epoch 50: loss 0.5310 val average_precision 0.6258
+23:38:36   epoch 75: loss 0.5197 val average_precision 0.6396
+23:38:37   epoch 100: loss 0.5187 val average_precision 0.6434
+23:38:39   epoch 125: loss 0.5122 val average_precision 0.6553
+23:38:40   epoch 150: loss 0.5150 val average_precision 0.6603
+23:38:42   epoch 175: loss 0.5134 val average_precision 0.6557
+23:38:43   epoch 200: loss 0.5120 val average_precision 0.6507
+23:38:44 oof gnn_pair_focused_sage_structural seed 1 fold 0
+23:38:44   epoch 0: loss 0.7346 val average_precision 0.5562
+23:38:45   epoch 25: loss 0.5452 val average_precision 0.6152
+23:38:47   epoch 50: loss 0.5306 val average_precision 0.6280
+23:38:48   epoch 75: loss 0.5251 val average_precision 0.6388
+23:38:50   epoch 100: loss 0.5222 val average_precision 0.6420
+23:38:51   epoch 125: loss 0.5170 val average_precision 0.6552
+23:38:53   epoch 150: loss 0.5185 val average_precision 0.6577
+23:38:54   epoch 175: loss 0.5195 val average_precision 0.6545
+23:38:55 oof gnn_pair_focused_sage_structural seed 1 fold 1
+23:38:55   epoch 0: loss 0.7345 val average_precision 0.5555
+23:38:56   epoch 25: loss 0.5451 val average_precision 0.6132
+23:38:58   epoch 50: loss 0.5300 val average_precision 0.6232
+23:38:59   epoch 75: loss 0.5211 val average_precision 0.6356
+23:39:01   epoch 100: loss 0.5204 val average_precision 0.6426
+23:39:02   epoch 125: loss 0.5136 val average_precision 0.6538
+23:39:04   epoch 150: loss 0.5172 val average_precision 0.6572
+23:39:05   epoch 175: loss 0.5170 val average_precision 0.6550
+23:39:06 oof gnn_pair_focused_sage_structural seed 1 fold 2
+23:39:06   epoch 0: loss 0.7358 val average_precision 0.5572
+23:39:08   epoch 25: loss 0.5432 val average_precision 0.6112
+23:39:09   epoch 50: loss 0.5259 val average_precision 0.6197
+23:39:11   epoch 75: loss 0.5192 val average_precision 0.6299
+23:39:12   epoch 100: loss 0.5187 val average_precision 0.6341
+23:39:14   epoch 125: loss 0.5132 val average_precision 0.6497
+23:39:15   epoch 150: loss 0.5137 val average_precision 0.6515
+23:39:17   epoch 175: loss 0.5144 val average_precision 0.6499
+23:39:18   epoch 200: loss 0.5118 val average_precision 0.6483
+23:39:18 oof gnn_pair_focused_sage_structural seed 1 fold 3
+23:39:18   epoch 0: loss 0.7343 val average_precision 0.5574
+23:39:20   epoch 25: loss 0.5448 val average_precision 0.6129
+23:39:21   epoch 50: loss 0.5273 val average_precision 0.6254
+23:39:23   epoch 75: loss 0.5216 val average_precision 0.6387
+23:39:24   epoch 100: loss 0.5200 val average_precision 0.6447
+23:39:26   epoch 125: loss 0.5158 val average_precision 0.6601
+23:39:27   epoch 150: loss 0.5170 val average_precision 0.6610
+23:39:29   epoch 175: loss 0.5165 val average_precision 0.6596
+23:39:29 oof gnn_pair_focused_sage_structural seed 1 fold 4
+23:39:29   epoch 0: loss 0.6953 val average_precision 0.5308
+23:39:31   epoch 25: loss 0.5413 val average_precision 0.6130
+23:39:32   epoch 50: loss 0.5210 val average_precision 0.6254
+23:39:34   epoch 75: loss 0.5185 val average_precision 0.6347
+23:39:35   epoch 100: loss 0.5159 val average_precision 0.6385
+23:39:37   epoch 125: loss 0.5146 val average_precision 0.6509
+23:39:38   epoch 150: loss 0.5115 val average_precision 0.6534
+23:39:40   epoch 175: loss 0.5104 val average_precision 0.6603
+23:39:41   epoch 200: loss 0.5031 val average_precision 0.6642
+23:39:43   epoch 225: loss 0.5076 val average_precision 0.6652
+23:39:44   epoch 250: loss 0.5043 val average_precision 0.6631
+23:39:45 oof gnn_pair_focused_sage_structural seed 2 fold 0
+23:39:45   epoch 0: loss 0.6944 val average_precision 0.5306
+23:39:47   epoch 25: loss 0.5469 val average_precision 0.6112
+23:39:48   epoch 50: loss 0.5311 val average_precision 0.6229
+23:39:50   epoch 75: loss 0.5265 val average_precision 0.6384
+23:39:51   epoch 100: loss 0.5238 val average_precision 0.6416
+23:39:53   epoch 125: loss 0.5222 val average_precision 0.6540
+23:39:54   epoch 150: loss 0.5188 val average_precision 0.6587
+23:39:56   epoch 175: loss 0.5161 val average_precision 0.6620
+23:39:57   epoch 200: loss 0.5090 val average_precision 0.6646
+23:39:59   epoch 225: loss 0.5125 val average_precision 0.6662
+23:40:00 oof gnn_pair_focused_sage_structural seed 2 fold 1
+23:40:00   epoch 0: loss 0.6969 val average_precision 0.5301
+23:40:01   epoch 25: loss 0.5442 val average_precision 0.6112
+23:40:03   epoch 50: loss 0.5230 val average_precision 0.6207
+23:40:04   epoch 75: loss 0.5203 val average_precision 0.6323
+23:40:06   epoch 100: loss 0.5176 val average_precision 0.6328
+23:40:07   epoch 125: loss 0.5163 val average_precision 0.6431
+23:40:09   epoch 150: loss 0.5141 val average_precision 0.6450
+23:40:10   epoch 175: loss 0.5107 val average_precision 0.6478
+23:40:12   epoch 200: loss 0.5048 val average_precision 0.6532
+23:40:13   epoch 225: loss 0.5061 val average_precision 0.6554
+23:40:15   epoch 250: loss 0.5063 val average_precision 0.6488
+23:40:15 oof gnn_pair_focused_sage_structural seed 2 fold 2
+23:40:15   epoch 0: loss 0.6954 val average_precision 0.5305
+23:40:16   epoch 25: loss 0.5408 val average_precision 0.6082
+23:40:18   epoch 50: loss 0.5227 val average_precision 0.6216
+23:40:19   epoch 75: loss 0.5201 val average_precision 0.6296
+23:40:21   epoch 100: loss 0.5184 val average_precision 0.6326
+23:40:22   epoch 125: loss 0.5172 val average_precision 0.6446
+23:40:24   epoch 150: loss 0.5165 val average_precision 0.6469
+23:40:25   epoch 175: loss 0.5132 val average_precision 0.6495
+23:40:27   epoch 200: loss 0.5058 val average_precision 0.6534
+23:40:28   epoch 225: loss 0.5067 val average_precision 0.6526
+23:40:28 oof gnn_pair_focused_sage_structural seed 2 fold 3
+23:40:29   epoch 0: loss 0.6939 val average_precision 0.5303
+23:40:30   epoch 25: loss 0.5431 val average_precision 0.6069
+23:40:32   epoch 50: loss 0.5245 val average_precision 0.6233
+23:40:33   epoch 75: loss 0.5218 val average_precision 0.6342
+23:40:35   epoch 100: loss 0.5196 val average_precision 0.6353
+23:40:36   epoch 125: loss 0.5167 val average_precision 0.6445
+23:40:38   epoch 150: loss 0.5151 val average_precision 0.6470
+23:40:39   epoch 175: loss 0.5128 val average_precision 0.6513
+23:40:41   epoch 200: loss 0.5071 val average_precision 0.6512
+23:40:42   epoch 225: loss 0.5075 val average_precision 0.6522
+23:40:43 oof gnn_pair_focused_sage_structural seed 2 fold 4
+23:40:43   epoch 0: loss 0.8167 val average_precision 0.4582
+23:40:44   epoch 25: loss 0.5462 val average_precision 0.6106
+23:40:46   epoch 50: loss 0.5321 val average_precision 0.6180
+23:40:47   epoch 75: loss 0.5270 val average_precision 0.6400
+23:40:49   epoch 100: loss 0.5206 val average_precision 0.6408
+23:40:50   epoch 125: loss 0.5206 val average_precision 0.6467
+23:40:52   epoch 150: loss 0.5102 val average_precision 0.6516
+23:40:53   epoch 175: loss 0.5115 val average_precision 0.6573
+23:40:55   epoch 200: loss 0.5061 val average_precision 0.6490
+23:40:56   epoch 225: loss 0.5113 val average_precision 0.6621
+23:40:58 oof gnn_pair_focused_sage_structural seed 3 fold 0
+23:40:58   epoch 0: loss 0.8148 val average_precision 0.4608
+23:40:59   epoch 25: loss 0.5457 val average_precision 0.6071
+23:41:01   epoch 50: loss 0.5299 val average_precision 0.6141
+23:41:02   epoch 75: loss 0.5263 val average_precision 0.6369
+23:41:04   epoch 100: loss 0.5206 val average_precision 0.6394
+23:41:05   epoch 125: loss 0.5210 val average_precision 0.6466
+23:41:07   epoch 150: loss 0.5115 val average_precision 0.6508
+23:41:08   epoch 175: loss 0.5150 val average_precision 0.6551
+23:41:10   epoch 200: loss 0.5093 val average_precision 0.6542
+23:41:11   epoch 225: loss 0.5144 val average_precision 0.6570
+23:41:13   epoch 250: loss 0.5140 val average_precision 0.6564
+23:41:14 oof gnn_pair_focused_sage_structural seed 3 fold 1
+23:41:14   epoch 0: loss 0.8166 val average_precision 0.4612
+23:41:16   epoch 25: loss 0.5446 val average_precision 0.6047
+23:41:17   epoch 50: loss 0.5271 val average_precision 0.6117
+23:41:19   epoch 75: loss 0.5245 val average_precision 0.6343
+23:41:20   epoch 100: loss 0.5164 val average_precision 0.6402
+23:41:22   epoch 125: loss 0.5183 val average_precision 0.6455
+23:41:23   epoch 150: loss 0.5106 val average_precision 0.6483
+23:41:25   epoch 175: loss 0.5081 val average_precision 0.6508
+23:41:26   epoch 200: loss 0.5068 val average_precision 0.6561
+23:41:28   epoch 225: loss 0.5109 val average_precision 0.6537
+23:41:29 oof gnn_pair_focused_sage_structural seed 3 fold 2
+23:41:29   epoch 0: loss 0.8137 val average_precision 0.4613
+23:41:31   epoch 25: loss 0.5429 val average_precision 0.6126
+23:41:32   epoch 50: loss 0.5271 val average_precision 0.6168
+23:41:34   epoch 75: loss 0.5232 val average_precision 0.6389
+23:41:35   epoch 100: loss 0.5155 val average_precision 0.6435
+23:41:37   epoch 125: loss 0.5146 val average_precision 0.6484
+23:41:38   epoch 150: loss 0.5100 val average_precision 0.6524
+23:41:39 oof gnn_pair_focused_sage_structural seed 3 fold 3
+23:41:40   epoch 0: loss 0.8159 val average_precision 0.4611
+23:41:41   epoch 25: loss 0.5452 val average_precision 0.6095
+23:41:43   epoch 50: loss 0.5294 val average_precision 0.6163
+23:41:44   epoch 75: loss 0.5263 val average_precision 0.6377
+23:41:46   epoch 100: loss 0.5188 val average_precision 0.6425
+23:41:47   epoch 125: loss 0.5198 val average_precision 0.6456
+23:41:49   epoch 150: loss 0.5107 val average_precision 0.6502
+23:41:50   epoch 175: loss 0.5103 val average_precision 0.6514
+23:41:52   epoch 200: loss 0.5091 val average_precision 0.6540
+23:41:53   epoch 225: loss 0.5108 val average_precision 0.6611
+23:41:55   epoch 250: loss 0.5095 val average_precision 0.6599
+23:41:55 oof gnn_pair_focused_sage_structural seed 3 fold 4
+23:41:55   epoch 0: loss 0.6376 val average_precision 0.5926
+23:41:57   epoch 25: loss 0.5375 val average_precision 0.6146
+23:41:58   epoch 50: loss 0.5277 val average_precision 0.6144
+23:42:00   epoch 75: loss 0.5167 val average_precision 0.6383
+23:42:01   epoch 100: loss 0.5136 val average_precision 0.6431
+23:42:03   epoch 125: loss 0.5132 val average_precision 0.6455
+23:42:04   epoch 150: loss 0.5075 val average_precision 0.6493
+23:42:06   epoch 175: loss 0.5079 val average_precision 0.6517
+23:42:07   epoch 200: loss 0.5063 val average_precision 0.6530
+23:42:08 oof gnn_pair_focused_sage_structural seed 4 fold 0
+23:42:08   epoch 0: loss 0.6407 val average_precision 0.5926
+23:42:10   epoch 25: loss 0.5448 val average_precision 0.6193
+23:42:11   epoch 50: loss 0.5395 val average_precision 0.6153
+23:42:12 oof gnn_pair_focused_sage_structural seed 4 fold 1
+23:42:12   epoch 0: loss 0.6384 val average_precision 0.5921
+23:42:13   epoch 25: loss 0.5370 val average_precision 0.6193
+23:42:15   epoch 50: loss 0.5291 val average_precision 0.6158
+23:42:15 oof gnn_pair_focused_sage_structural seed 4 fold 2
+23:42:15   epoch 0: loss 0.6407 val average_precision 0.5926
+23:42:17   epoch 25: loss 0.5417 val average_precision 0.6162
+23:42:18   epoch 50: loss 0.5338 val average_precision 0.6142
+23:42:20   epoch 75: loss 0.5246 val average_precision 0.6340
+23:42:21   epoch 100: loss 0.5186 val average_precision 0.6413
+23:42:23   epoch 125: loss 0.5192 val average_precision 0.6458
+23:42:24   epoch 150: loss 0.5146 val average_precision 0.6481
+23:42:26   epoch 175: loss 0.5141 val average_precision 0.6512
+23:42:27   epoch 200: loss 0.5119 val average_precision 0.6521
+23:42:29   epoch 225: loss 0.5104 val average_precision 0.6590
+23:42:30   epoch 250: loss 0.5133 val average_precision 0.6566
+23:42:31 oof gnn_pair_focused_sage_structural seed 4 fold 3
+23:42:31   epoch 0: loss 0.6380 val average_precision 0.5916
+23:42:32   epoch 25: loss 0.5366 val average_precision 0.6202
+23:42:34   epoch 50: loss 0.5274 val average_precision 0.6186
+23:42:35   epoch 75: loss 0.5161 val average_precision 0.6361
+23:42:37   epoch 100: loss 0.5139 val average_precision 0.6461
+23:42:38   epoch 125: loss 0.5154 val average_precision 0.6474
+23:42:40   epoch 150: loss 0.5063 val average_precision 0.6543
+23:42:41   epoch 175: loss 0.5063 val average_precision 0.6606
+23:42:43   epoch 200: loss 0.5056 val average_precision 0.6613
+23:42:44   epoch 225: loss 0.5018 val average_precision 0.6689
+23:42:46   epoch 250: loss 0.5047 val average_precision 0.6651
+23:42:46 oof gnn_pair_focused_sage_structural seed 4 fold 4
+23:42:47 done in 5361s

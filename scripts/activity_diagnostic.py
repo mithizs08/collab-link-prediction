@@ -51,7 +51,7 @@ def search_best(cfg, prefix: str) -> dict:
     lcfg = cfg["models"]["lightgbm"]
     return {"learning_rate": float(kv["lr"]), "num_leaves": int(kv["leaves"]),
             "min_child_samples": int(kv["min_child"]), "subsample": lcfg["subsample"],
-            "colsample_bytree": lcfg["colsample_bytree"]}
+            "colsample_bytree": lcfg["colsample_bytree"], "early_stopping_rounds": lcfg["early_stopping_rounds"]}
 
 
 def main():
@@ -118,13 +118,9 @@ def regenerate_report(cfg, mix, params):
     res = Path(cfg["paths"]["results"])
     grid = pd.read_csv(res / "negative_mix_grid.csv").to_dict("records")
     base = pd.read_csv(res / "baselines.csv")
-    val_best = {}
-    for p in ("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random"):
-        subset, metric = report.HEADLINE[p]
-        d = base[(base.split == "val") & (base.protocol == p) & (base.subset == subset) & (base.metric == metric)]
-        val_best[p] = d.sort_values(["value", "model"], ascending=[False, True])["model"].iloc[0]
+    val_best = report.val_best(base, ("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random"))
     write_feature_report(cfg, {"logreg": select_mix(grid, "logreg")[0], "lightgbm": mix}, params, val_best,
-                         search_best(cfg, "lightgbm_pair_focused"))
+                         {k: search_best(cfg, k) for k in ("lightgbm_pair_focused", "lightgbm_pair_focused_shortcut")})
 
 
 if __name__ == "__main__":

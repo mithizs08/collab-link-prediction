@@ -27,13 +27,18 @@ predict which author pairs co-author for the first time in the following window.
    node features, degrees, embeddings, normalisation statistics, author metadata, negative
    candidates) must come only from works published before T's cutoff. Every new feature or
    model must be explicitly checked against this, ideally with a test that would fail on leakage.
-2. **One source of randomness.** All randomness goes through `linkpred.config.set_seed`, driven
-   by `seed` / `seeds` in the config. Learned models run with seeds `[0, 1, 2, 3, 4]`; report
-   mean ± std across seeds.
-3. **Results live in files.** All results are written to `results/` as CSV via
-   `linkpred.results.write_results`, with columns
-   `model, split, protocol, subset, negative_type, seed, metric, value, ci_low, ci_high`.
-   Never report a number (in chat, README, report, or figures) that isn't in a results file.
+2. **All randomness derives from the config seeds.** Global RNGs are seeded with
+   `linkpred.config.set_seed(cfg["seed"])`; every other random source is seeded explicitly from
+   `seed` / `seeds` in the config: split sampling via `SeedSequence([seed, split])`, LightGBM
+   `random_state`, GNNs via `models.gnn.set_determinism`, node2vec via torch + `srand`, bootstraps via
+   `default_rng([seed, ...])`. Never use an unseeded RNG. Learned models run with seeds `[0, 1, 2, 3, 4]`;
+   report mean ± sd across seeds.
+3. **Results live in files.** Every number reported (chat, README, report, figures) must be in a
+   results CSV under `results/` with columns
+   `model, split, protocol, subset, negative_type, seed, metric, value, ci_low, ci_high`, written via
+   `linkpred.results.write_results` (which validates each row). Rows produced elsewhere (e.g. on
+   Colab) are re-validated through `write_results` on import (`scripts/import_colab_results.py`).
+   Diagnostics that are not model results may live under `report/` but must be produced by a script.
 4. **Honest reporting.** If a simple baseline matches or beats a complex model, say so plainly.
    Never tune on the test set: hyperparameters, early stopping, thresholds and model selection
    use the validation split only. Test is evaluated once per final configuration.
@@ -43,9 +48,18 @@ predict which author pairs co-author for the first time in the following window.
    `docs/decisions.md`, one dated entry per decision (format: date, decision, alternatives,
    reason).
 7. **Same protocols for every model.** Evaluate with `linkpred.eval.protocols.evaluate` on the
-   saved split pairs: `hard_active` (distance-2 positives vs activity-matched hard negatives) is the
-   lead pair-level metric, with `rank_hard_active`; `hard` / `rank_hard` are reported as
-   "includes activity"; `rank_random`, `random` are secondary; `diagnostic_all_vs_hard` goes only in
-   an appendix with its warning. Prediction-year activity may select evaluation pairs or training
-   labels, never model inputs. Never feed shortest-path distance to a model without checking it
-   against the `hard` protocol (see decisions.md, "Evaluation protocols").
+   saved split pairs. Headline = **macro within-group** score (positives and negatives/candidates from
+   the same newcomer group, mean of the two groups; audit M2) on `hard_active` (ROC-AUC) and
+   `rank_hard_active` (query AUC); `hard` / `rank_hard` are reported as "includes activity"; pooled
+   numbers are kept but labelled as affected by the newcomer imbalance; `rank_random`, `random` are
+   secondary; `diagnostic_all_vs_hard` goes only in an appendix with its warning. Every results table
+   includes the `prefer_newer` reference row. Primary significance: one paired bootstrap on seed-averaged
+   scores per comparison, Holm-corrected across the headline family (`scripts/final_comparison.py`).
+   Prediction-year activity may select evaluation pairs or training labels, never model inputs. Never
+   feed shortest-path distance to a model, and never train with negatives that are all at distance 2
+   against positives that are not (audit M1), without checking against the `hard` protocols.
+8. **Validation first, test last.** Any diagnostic that could change the evaluation design or a model
+   choice runs on validation first; the decision must rest on the validation result. Test is touched
+   only for final reporting of already-fixed choices (audit M3: the Phase 4 activity diagnostic and the
+   Phase 6 newcomer diagnostic were computed on test and led to design changes, so test is no longer a
+   clean confirmation set for those decisions).

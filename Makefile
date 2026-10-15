@@ -2,7 +2,7 @@ PYTHON ?= python
 CONFIG ?= configs/default.yaml
 RUN = PYTHONPATH=src $(PYTHON) -m linkpred.cli --config $(CONFIG)
 
-.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis
+.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis final
 
 help:
 	@echo "Targets: data splits baselines features train evaluate report test all"
@@ -24,6 +24,7 @@ train:       ## feature models (LR, LightGBM): mix grid, search, 5 seeds, paired
 	PYTHONPATH=src $(PYTHON) scripts/run_feature_models.py --config $(CONFIG)
 	PYTHONPATH=src $(PYTHON) scripts/activity_diagnostic.py
 	PYTHONPATH=src $(PYTHON) scripts/run_node2vec.py --config $(CONFIG)
+	PYTHONPATH=src $(PYTHON) scripts/node2vec_quality.py
 
 gnn-bundle:  ## node features + colab_bundle.tar.gz for the Colab GPU run (not committed)
 	PYTHONPATH=src $(PYTHON) -c "from linkpred.config import load_config; from linkpred.features.node_features import build_node_features; build_node_features(load_config('$(CONFIG)'))"
@@ -35,10 +36,11 @@ gnn-dry:     ## local CPU dry run of the whole GNN pipeline (2 epochs, 1 seed) i
 gnn-import:  ## make gnn-import SRC=~/Downloads/gnn_results
 	PYTHONPATH=src $(PYTHON) scripts/import_colab_results.py $(SRC)
 
-gnn-analysis: ## paired tests, hybrid LightGBM, newcomer-stratified diagnostic, results/gnn.md (after gnn-import)
+gnn-analysis: ## re-evaluate GNN scores, paired tests, hybrid, shortcut check, results/gnn.md (after gnn-import)
 	PYTHONPATH=src $(PYTHON) scripts/gnn_analysis.py
-	PYTHONPATH=src $(PYTHON) scripts/stratified_hard_active.py
-	PYTHONPATH=src $(PYTHON) scripts/gnn_analysis.py --report-only
+
+final:       ## primary comparison: macro within-group metrics, seed-mean CIs, Holm-corrected tests
+	PYTHONPATH=src $(PYTHON) scripts/final_comparison.py
 
 evaluate:    ## score models on val/test, write results/*.csv
 	$(RUN) evaluate

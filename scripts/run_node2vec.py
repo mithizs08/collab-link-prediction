@@ -98,6 +98,8 @@ def main(argv=None):
     ap.add_argument("--config", default="configs/default.yaml")
     ap.add_argument("--n-boot", type=int, default=None)
     ap.add_argument("--seeds", type=int, nargs="*", default=None)
+    ap.add_argument("--skip-grid", action="store_true",
+                    help="reuse results/node2vec_grid.csv (validation choices) instead of re-running the grid")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     cfg = load_config(args.config)
@@ -113,11 +115,22 @@ def main(argv=None):
     # 1. grid -----------------------------------------------------------------------------
     mixes = list(itertools.product(cfg["models"]["training_mix"]["hard_fractions"], cfg["models"]["training_mix"]["ratios"]))
     grid_rows, choice = [], []
+    if args.skip_grid:
+        grid_rows = pd.read_csv(res / "node2vec_grid.csv").to_dict("records")
     for p, q in itertools.product(X.ncfg["p_grid"], X.ncfg["q_grid"]):
+        if args.skip_grid:
+            for op in X.ncfg["operators"]:
+                kind = f"node2vec|p={p:g}|q={q:g}|op={op}"
+                mix, _ = select_mix(grid_rows, kind)
+                name = f"{kind}|hard={mix[0]:g}|1:{mix[1]}"
+                ha = next(x["value"] for x in grid_rows if x["model"] == name and x["protocol"] == "hard_active"
+                          and x["subset"] == "all" and x["metric"] == "roc_auc")
+                choice.append({"p": p, "q": q, "op": op, "mix": mix, "hard_active": ha})
+            continue
         raw, al = X.embeddings(p, q, cfg["seed"], ("train", "val"))
         r, _ = X.evaluate(X.cos_scores(raw["val"], "val"), "val", f"node2vec_cosine|p={p:g}|q={q:g}", cfg["seed"], 0, GRID_PROTOCOLS)
         grid_rows += r
-        for op in N2V.OPERATORS:
+        for op in X.ncfg["operators"]:
             kind = f"node2vec|p={p:g}|q={q:g}|op={op}"
             for frac, ratio in mixes:
                 m = X.fit_lr(al["train"], op, (frac, ratio))
@@ -130,12 +143,16 @@ def main(argv=None):
                       and x["subset"] == "all" and x["metric"] == "roc_auc")
             choice.append({"p": p, "q": q, "op": op, "mix": mix, "hard_active": ha})
         log.info("grid p=%g q=%g done (%.0fs)", p, q, time.time() - t0)
-    write_results(grid_rows, res / "node2vec_grid.csv", append=False)
+    if not args.skip_grid:
+        write_results(grid_rows, res / "node2vec_grid.csv", append=False)
     ch = pd.DataFrame(choice)
     ch["v"] = ch["hard_active"].round(6)
     best = ch.sort_values(["v", "p", "q"], ascending=[False, True, True], kind="stable").iloc[0]
     P, Q, OP, MIX = float(best["p"]), float(best["q"]), best["op"], tuple(best["mix"])
     log.info("chosen p=%g q=%g op=%s mix=%s (val hard_active %.4f)", P, Q, OP, MIX, best["hard_active"])
+    # Sensitivity analysis (audit M4): Hadamard at the same p, q, with the mix the Phase 4 rule chose for it.
+    hrow = ch[(ch.p == P) & (ch.q == Q) & (ch.op == "hadamard")].iloc[0]
+    HMIX = tuple(hrow["mix"])
 
     # 2. final node2vec models + 3. LightGBM + node2vec ------------------------------------------
     fm = pd.read_csv(res / "feature_models.csv")
@@ -160,8 +177,9 @@ def main(argv=None):
     for s in seeds:
         raw, al = X.embeddings(P, Q, s)
         lr = X.fit_lr(al["train"], OP, MIX)
+        lr_h = X.fit_lr(al["train"], "hadamard", HMIX)
         # LightGBM base (refit, identical to Phase 4 settings) and with node2vec features.
-        pairs, y = FM.training_pairs(X.splits["train"], lmix[0], lmix[1], active=active)
+        pairs, y = FM.training_pairs(X.splits["train"], lmix[0], lmix[1], active=active, d2_only=active)
         u_tr, v_tr = pairs["u_idx"].values, pairs["v_idx"].values
         neg_es = "neg_hard_active" if active else "neg_hard"
         d2 = (X.splits["val"]["positives"]["distance"] == 2).values
@@ -174,7 +192,8 @@ def main(argv=None):
         m_base = FM.fit_lightgbm(Xtr_n[ALL_FEATURES], y, Xv_n[ALL_FEATURES], yv, lparams, s)
         m_n2v = FM.fit_lightgbm(Xtr_n, y, Xv_n, yv, lparams, s)
         for split in ("val", "test"):
-            sets = {"node2vec": X.lr_scores(lr, al[split], split, OP), "node2vec_cosine": X.cos_scores(raw[split], split)}
+            sets = {"node2vec": X.lr_scores(lr, al[split], split, OP), "node2vec_cosine": X.cos_scores(raw[split], split),
+                    "node2vec_hadamard_sensitivity": X.lr_scores(lr_h, al[split], split, "hadamard")}
             lb, ln = {}, {}
             for n, u, v in pair_sets(X.splits[split]):
                 F = lgbm_frame(split, al[split], raw[split], u, v)
@@ -192,18 +211,14 @@ def main(argv=None):
 
     # 4. paired tests ---------------------------------------------------------------------------
     base = pd.read_csv(res / "baselines.csv")
-    val_best = {}
-    for p in PROTOCOL_ORDER:
-        subset, metric = report.HEADLINE[p]
-        d = base[(base.split == "val") & (base.protocol == p) & (base.subset == subset) & (base.metric == metric)]
-        val_best[p] = d.sort_values(["value", "model"], ascending=[False, True])["model"].iloc[0]
+    val_best = report.val_best(base, PROTOCOL_ORDER)
     href = X.E.heuristic_raw("test")
     prow = []
     main_protocols = ("hard_active", "rank_hard_active", "hard", "rank_hard", "rank_random", "random")
     for s in seeds:
         for p in main_protocols:
             nt = NEG_TYPE.get(p, "hard")
-            for name in ("node2vec", "node2vec_cosine", f"{base_lgbm}+node2vec"):
+            for name in ("node2vec", "node2vec_cosine", "node2vec_hadamard_sensitivity", f"{base_lgbm}+node2vec"):
                 refs = {val_best[p]} | ({"adamic_adar"} if p in PAIR_PROTOCOLS else set())
                 for h in sorted(refs):
                     prow += paired(cfg, raw_scores[(name, s, "test")], href[h][1], p, name, h, s, nt)
@@ -212,11 +227,11 @@ def main(argv=None):
             prow += paired(cfg, raw_scores[(f"{base_lgbm}+node2vec", s, "test")], raw_scores[(base_lgbm, s, "test")], p,
                            f"{base_lgbm}+node2vec", base_lgbm, s, nt)
     write_results(prow, res / "node2vec_paired.csv", append=False)
-    write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, ch)
+    write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, ch, HMIX)
     log.info("done in %.0fs", time.time() - t0)
 
 
-def write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, choice: pd.DataFrame):
+def write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, choice: pd.DataFrame, HMIX=None):
     from linkpred.eval.feature_report import msd, seed_summary
 
     res = Path(cfg["paths"]["results"])
@@ -226,14 +241,23 @@ def write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, choice: pd.DataFrame):
     grid = pd.read_csv(res / "node2vec_grid.csv")
     pr = pd.read_csv(res / "node2vec_paired.csv")
     s = seed_summary(pd.concat([nv, fm[fm.model == base_lgbm]]))
-    models = ["node2vec", "node2vec_cosine", base_lgbm, f"{base_lgbm}+node2vec"]
-    ks_h = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_hard"]]
+    learned = ["node2vec", "node2vec_cosine", base_lgbm, f"{base_lgbm}+node2vec"]
+    order = learned + ["adamic_adar", "jaccard", "prefer_newer"]
     ks_r = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_random"]]
     n = cfg["models"]["node2vec"]
+
+    def get(m, split, p, subset, metric):
+        if m in learned + ["node2vec_hadamard_sensitivity"]:
+            d = s[(s.model == m) & (s.split == split) & (s.protocol == p) & (s.subset == subset) & (s.metric == metric)]
+            return msd(d.iloc[0]) if len(d) else ""
+        d = base[(base.model == m) & (base.split == split) & (base.protocol == p) & (base.subset == subset) & (base.metric == metric)]
+        return report.fmt(*d[["value", "ci_low", "ci_high"]].iloc[0]) if len(d) else ""
+
     out = ["# node2vec", "",
            "_Generated by `scripts/run_node2vec.py` from `results/node2vec.csv`, `node2vec_grid.csv`, "
            "`node2vec_paired.csv` (and `feature_models.csv` / `baselines.csv` for reference rows). Learned models: "
-           "mean ± sd over 5 seeds; heuristics: point estimate [bootstrap 95% CI]._", "",
+           "mean ± sd over 5 seeds; reference rows: point [bootstrap 95% CI]. Headline = macro within-group score "
+           "(audit M2). Seed-mean CIs and Holm-corrected primary tests: `results/final_comparison.md`._", "",
            "## Setup", "",
            f"- node2vec (torch_geometric + torch-cluster) on each split's input graph only: dimension {n['embedding_dim']}, "
            f"walk length {n['walk_length']}, context {n['context_size']}, {n['walks_per_node']} walks per node, "
@@ -242,11 +266,12 @@ def write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, choice: pd.DataFrame):
            "co-authors in both graphs) so a classifier fitted on train pairs applies. `node2vec_cosine` uses raw "
            "within-split cosine similarity and needs no alignment.",
            f"- **Chosen on validation:** p = {P:g}, q = {Q:g}, operator **{OP}**, negative mix hard fraction {MIX[0]:g}, 1:{MIX[1]} "
-           "(mix by the Phase 4 rule; p, q, operator by val hard_active ROC-AUC).",
-           f"- LightGBM + node2vec: base model `{base_lgbm}` (better on val hard_active), same settings "
-           f"(num_leaves {lparams['num_leaves']}, lr {lparams['learning_rate']:g}, min_child {lparams['min_child_samples']}), "
-           f"plus the {n['embedding_dim']} {OP} dimensions and the raw cosine.", ""]
-    out += ["## Validation grid (seed 0): val hard_active ROC-AUC at the rule-chosen mix", ""]
+           "(mix by the Phase 4 rule; p, q, operator by val pooled hard_active ROC-AUC). This is the reported node2vec result.",
+           f"- LightGBM + node2vec: base model `{base_lgbm}` (better on val pooled hard_active; the retrained distance-2 "
+           f"pair-focused model when it is chosen), same settings (num_leaves {lparams['num_leaves']}, lr "
+           f"{lparams['learning_rate']:g}, min_child {lparams['min_child_samples']}), plus the {n['embedding_dim']} {OP} "
+           "dimensions and the raw cosine.", ""]
+    out += ["## Validation grid (seed 0): val pooled hard_active ROC-AUC at the rule-chosen mix", ""]
     piv = choice.assign(cell=lambda d: d["hard_active"].map(lambda v: f"{v:.4f}"))
     piv = piv.pivot_table(index=["p", "q"], columns="op", values="cell", aggfunc="first").reset_index()
     cos = grid[(grid.model.str.startswith("node2vec_cosine")) & (grid.protocol == "hard_active") & (grid.subset == "all")
@@ -256,54 +281,45 @@ def write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, choice: pd.DataFrame):
     piv = piv.merge(cos[["p", "q", "value"]].rename(columns={"value": "cosine"}), on=["p", "q"])
     piv["cosine"] = piv["cosine"].map(lambda v: f"{v:.4f}")
     out += [report.to_md(piv), ""]
-
-    def sec(split, p, sub, metrics, refs):
-        d = s[(s.split == split) & (s.protocol == p) & (s.subset == sub)]
-        t = pd.DataFrame({"model": models})
-        for m in metrics:
-            x = d[d.metric == m].set_index("model")
-            t[m] = [msd(x.loc[k]) if k in x.index else "" for k in models]
-        h = report.metric_table(base, p, sub, split, metrics, refs)
-        h["model"] = h["model"] + " (heuristic)"
-        return report.to_md(pd.concat([t, h]))
-
     for split in ("test", "val"):
         out += [f"## {split}", ""]
-        for p, sub, metrics in (("hard_active", "all", ["roc_auc", "average_precision"]),
-                                ("rank_hard_active", "full_candidates", ks_h + ["mrr", "query_auc"]),
-                                ("hard", "all", ["roc_auc", "average_precision"]),
-                                ("rank_hard", "full_candidates", ks_h + ["mrr", "query_auc"]),
-                                ("rank_random", "all", ks_r + ["mrr"]),
-                                ("random", "all", ["roc_auc", "average_precision"])):
-            tag = {"hard_active": " (lead pair-level metric)", "hard": " (includes activity)"}.get(p, "")
-            out += [f"### {p} — {sub}{tag}", "", sec(split, p, sub, metrics, ["adamic_adar"]), ""]
-        out += [f"### Cold start vs established ({split})", ""]
-        rows = []
-        for p, metric in (("hard_active", "roc_auc"), ("rank_hard_active", "query_auc"), ("hard", "roc_auc")):
-            for sub in ("cold_start", "established"):
-                d = s[(s.split == split) & (s.protocol == p) & (s.subset == sub) & (s.metric == metric)].set_index("model")
-                b = base[(base.split == split) & (base.protocol == p) & (base.subset == sub) & (base.metric == metric)
-                         & (base.model == "adamic_adar")]
-                row = {"protocol / subset": f"{p} {metric} — {sub}"}
-                row.update({m: msd(d.loc[m]) for m in models if m in d.index})
-                row["adamic_adar"] = f"{b['value'].iloc[0]:.3f}" if len(b) else ""
-                rows.append(row)
-        out += [report.to_md(pd.DataFrame(rows)), ""]
-    out += ["## Paired bootstrap tests (test, per seed)", ""]
+        out += report.pair_level_md(get, order, split, cfg["evaluation"]["rank_ks_hard"])
+        for p, sub, metrics in (("rank_random", "all", ks_r + ["mrr"]), ("random", "all", ["roc_auc", "average_precision"])):
+            t = pd.DataFrame({"model": order})
+            for m_ in metrics:
+                t[m_] = [get(m, split, p, sub, m_) for m in order]
+            out += [f"### {p} — {sub}", "", report.to_md(t), ""]
+    if "node2vec_hadamard_sensitivity" in set(nv.model):
+        sens = ["node2vec", "node2vec_hadamard_sensitivity", "node2vec_cosine"]
+        out += ["## Sensitivity analysis: Hadamard operator (audit M4; not a selected model)", "",
+                f"The reported node2vec uses the L1 operator, which won the validation selection fairly. The audit found "
+                "that the Procrustes alignment is correct and transfers a Hadamard classifier almost losslessly "
+                "(validation random ROC-AUC 0.905 transferred vs 0.901 fitted within validation), while L1 captures "
+                "proximity poorly (0.665). This section reports Hadamard at the same p, q "
+                f"(mix chosen by the Phase 4 rule: hard fraction {HMIX[0]:g}, 1:{HMIX[1]}) as a labelled sensitivity "
+                "analysis only; it is not used for any comparison.", ""]
+        t = pd.DataFrame({"model": sens})
+        for p, sub, mt in (("hard_active", "macro", "roc_auc"), ("rank_hard_active", "macro", "query_auc"),
+                           ("hard", "macro", "roc_auc"), ("random", "all", "roc_auc"), ("rank_random", "all", "mrr")):
+            t[f"{p} {sub} {mt}"] = [get(m, "test", p, sub, mt) for m in sens]
+        out += ["Test split:", "", report.to_md(t), ""]
+    out += ["## Paired bootstrap tests per seed (test) — secondary robustness column", "",
+            "On each protocol's headline metric (macro within-group for pair-level protocols); the five tests share the "
+            "test pairs. Primary tests: `results/final_comparison.md`.", ""]
     pv = pr[pr.metric.str.endswith("_p_value")].rename(columns={"value": "p"})
     dv = pr[~pr.metric.str.endswith("_p_value")]
-    m = dv.merge(pv[["model", "protocol", "seed", "p"]], on=["model", "protocol", "seed"])
+    m = dv.merge(pv[["model", "protocol", "subset", "seed", "p"]], on=["model", "protocol", "subset", "seed"])
     rows = []
     for (model, p), d in m.groupby(["model", "protocol"], sort=False):
-        rows.append({"comparison": model, "protocol": p, "metric": d["metric"].iloc[0],
+        rows.append({"comparison": model, "protocol": p, "metric": f"{d['subset'].iloc[0]} {d['metric'].iloc[0]}",
                      "mean diff": f"{d['value'].mean():+.4f}",
                      "mean 95% CI": f"[{d['ci_low'].mean():+.4f}, {d['ci_high'].mean():+.4f}]",
                      "sig. better": f"{int(((d.p < 0.05) & (d.value > 0)).sum())}/{len(d)}",
                      "sig. worse": f"{int(((d.p < 0.05) & (d.value < 0)).sum())}/{len(d)}",
                      "median p": f"{d['p'].median():.3f}"})
     out += [report.to_md(pd.DataFrame(rows)), ""]
-    out += ["## Appendix: diagnostic_all_vs_hard", "", report.DIAGNOSTIC_WARNING, "",
-            sec("test", "diagnostic_all_vs_hard", "all", ["roc_auc", "average_precision"], ["adamic_adar"]), ""]
+    out += ["## Appendix", ""] + report.positives_only_appendix(get, order, "test")
+    out += ["### diagnostic_all_vs_hard", "", report.DIAGNOSTIC_WARNING, ""]
     (res / "node2vec.md").write_text("\n".join(out))
 
 

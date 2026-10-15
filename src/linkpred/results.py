@@ -9,7 +9,8 @@ Schema (extended 2026-10-14 for evaluation protocols, see docs/decisions.md):
 - subset: "all" or a named stratum (e.g. "distance=3", "cold_start", "full_candidates")
 - negative_type: the negatives the protocol compares against ("random" / "hard")
 - seed: training seed for learned models; deterministic models record the config seed
-  (the seed that fixed the evaluation pairs)
+  (the seed that fixed the evaluation pairs); -1 = a value averaged over seeds 0-4
+  (results/final_comparison*.csv)
 - ci_low / ci_high: bootstrap 95% interval, empty when not computed
 """
 

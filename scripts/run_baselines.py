@@ -29,7 +29,7 @@ from linkpred.config import load_config, set_seed  # noqa: E402
 from linkpred.data.splits import load_split  # noqa: E402
 from linkpred.eval import bootstrap as bs  # noqa: E402
 from linkpred.eval import report  # noqa: E402
-from linkpred.eval.protocols import PROTOCOL_ORDER, evaluate  # noqa: E402
+from linkpred.eval.protocols import PROTOCOL_ORDER, evaluate, paired_test  # noqa: E402
 from linkpred.models import heuristics as H  # noqa: E402
 from linkpred.results import write_results  # noqa: E402
 
@@ -52,6 +52,8 @@ def select_katz_beta(cfg, val: dict) -> tuple[float, list[dict]]:
 
 
 def paired_rows(cfg, raw_test: dict, best_by_protocol: dict, models: list[str]) -> list[dict]:
+    """Validation-best heuristic vs every other heuristic on test, on each protocol's headline metric
+    (macro for pair-level protocols). Heuristics are deterministic: one test per comparison."""
     rows = []
     n_boot = cfg["evaluation"]["n_bootstrap"]
     for p in PROTOCOL_ORDER:
@@ -61,12 +63,9 @@ def paired_rows(cfg, raw_test: dict, best_by_protocol: dict, models: list[str]) 
             if b == a:
                 continue
             rng = np.random.default_rng([cfg["seed"], 99, PROTOCOL_ORDER.index(p)])
-            ra, rb = raw_test[a][p][subset], raw_test[b][p][subset]
-            if "pos" in ra:
-                res = bs.paired_classification(ra["pos"], ra["neg"], rb["pos"], rb["neg"], metric, rng, n_boot)
-            else:
-                res = bs.paired_mean(ra[metric], rb[metric], rng, n_boot)
-            neg_type = "random" if p in ("random", "rank_random") else "hard"
+            res = paired_test(raw_test[a], raw_test[b], p, subset, metric, rng, n_boot)
+            neg_type = {"random": "random", "rank_random": "random", "hard_active": "hard_active",
+                        "rank_hard_active": "hard_active"}.get(p, "hard")
             base = {"model": f"{a} - {b}", "split": "test", "protocol": p, "subset": subset,
                     "negative_type": neg_type, "seed": cfg["seed"]}
             rows.append({**base, "metric": f"{metric}_diff", "value": res["diff"],
@@ -86,24 +85,15 @@ def write_report(cfg, models: list[str], beta: float) -> None:
     report.breakdown_figure(df, "test", models, fig_dir / "baselines_random_breakdown_test.png")
 
     ranks = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_random"]] + ["mrr"]
-    ranks_h = [f"hits@{k}" for k in cfg["evaluation"]["rank_ks_hard"]] + ["mrr"]
-    sections = [
-        ("hard_active", "all", ["roc_auc", "average_precision"]),
-        ("rank_hard_active", "full_candidates", ranks_h + ["query_auc"]),
-        ("rank_hard_active", "partial_candidates", ranks_h + ["query_auc"]),
-        ("rank_hard_active", "all", ["query_auc"]),
-        ("hard", "all", ["roc_auc", "average_precision"]),
-        ("rank_hard", "full_candidates", ranks_h + ["query_auc"]),
-        ("rank_hard", "partial_candidates", ranks_h + ["query_auc"]),
-        ("rank_hard", "all", ["query_auc"]),
-        ("rank_random", "all", ranks + ["query_auc"]),
-        ("random", "all", ["roc_auc", "average_precision"]),
-    ]
 
     def n_of(split, p, subset):
         m = "n_queries" if p.startswith("rank") else "n_positives"
         x = df[(df["split"] == split) & (df["protocol"] == p) & (df["subset"] == subset) & (df["metric"] == m)]
         return int(x["value"].iloc[0]) if len(x) else 0
+
+    def get(m, split, p, subset, metric):
+        x = df[(df.model == m) & (df.split == split) & (df.protocol == p) & (df.subset == subset) & (df.metric == metric)]
+        return report.fmt(*x[["value", "ci_low", "ci_high"]].iloc[0]) if len(x) else ""
 
     out = [
         "# Heuristic baselines",
@@ -112,8 +102,10 @@ def write_report(cfg, models: list[str], beta: float) -> None:
         "`results/baselines_paired.csv` and `results/katz_beta_selection.csv`. "
         "Values: point estimate [bootstrap 95% CI, 1,000 resamples]._",
         "",
-        f"Truncated Katz uses beta = {beta:g}, chosen on validation (hard protocol, ROC-AUC); "
-        "see the selection table at the end.",
+        f"Truncated Katz uses beta = {beta:g}, chosen on validation (hard protocol, pooled ROC-AUC); "
+        "see the selection table at the end. `prefer_newer` is a reference row, not a heuristic: "
+        "−min(works before the cutoff) of the two authors, i.e. it only prefers pairs with a newer author "
+        "and shows how much a protocol rewards newcomer status.",
         "",
         "Ranking metrics use expected ranks under random tie-breaking (see `linkpred.eval.metrics`). "
         f"A random ranker scores MRR ≈ {report.RANDOM_MRR_101:.3f} with 100 candidates; query_auc 0.5.",
@@ -121,41 +113,40 @@ def write_report(cfg, models: list[str], beta: float) -> None:
         "**Reading guide.** Neighbourhood heuristics (CN, Jaccard, Adamic-Adar, resource allocation) "
         "score every pair without a common neighbour exactly 0. Almost no random negative or random "
         "ranking candidate has a common neighbour, so under `random` and `rank_random` these heuristics "
-        "essentially test *whether a positive is at distance 2*; the stratum table below shows near-perfect "
-        "separation at distance 2 and chance (all ties) beyond it. `hard` and `rank_hard` remove that "
-        "shortcut by comparing distance-2 pairs only. `hard_active` / `rank_hard_active` further restrict "
-        "negatives to authors who publish in the prediction year, removing the activity shortcut (Phase 4); "
-        "they are the lead pair-level numbers.",
+        "essentially test *whether a positive is at distance 2*. `hard` and `rank_hard` compare distance-2 "
+        "pairs only; `hard_active` / `rank_hard_active` also restrict negatives to authors who publish in the "
+        "prediction year (Phase 4). From 2026-10-15 the pair-level protocols are headlined by the **macro "
+        "within-group** score: positives and negatives are compared inside the established and newcomer "
+        "groups separately and the two scores are averaged, because pooled numbers are affected by the "
+        "newcomer imbalance between positives and negatives (audit M2, `docs/decisions.md`).",
     ]
     for split in ("test", "val"):
         out += ["", f"## {split.capitalize()} split", ""]
-        for p, subset, metrics in sections:
+        out += report.pair_level_md(get, models, split, cfg["evaluation"]["rank_ks_hard"])
+        for p, subset, metrics in (("rank_random", "all", ranks + ["query_auc"]),
+                                   ("random", "all", ["roc_auc", "average_precision"])):
             out += [f"### {p} — {subset} (n = {n_of(split, p, subset):,})", "",
                     report.to_md(report.metric_table(df, p, subset, split, metrics, models)), ""]
-    out += ["## Random protocol by positive stratum (test, ROC-AUC)", "",
+    out += ["## Random protocol by positive distance (test, ROC-AUC)", "",
             "Positives restricted to the stratum; all random negatives kept.", ""]
-    strata = ["distance=2", "distance=3", "distance=4+", "disconnected", "cold_start", "established"]
+    strata = ["distance=2", "distance=3", "distance=4+", "disconnected"]
     d = df[(df["split"] == "test") & (df["protocol"] == "random") & (df["metric"] == "roc_auc")]
     tbl = pd.DataFrame({"model": models})
     for s in strata:
         x = d[d["subset"] == s].set_index("model")
         tbl[f"{s} (n={n_of('test', 'random', s):,})"] = [fmt3(x, m) for m in models]
     out += [report.to_md(tbl), ""]
-    out += ["## Hard protocol by cold start (test, ROC-AUC)", ""]
-    d = df[(df["split"] == "test") & (df["protocol"] == "hard") & (df["metric"] == "roc_auc")]
-    tbl = pd.DataFrame({"model": models})
-    for s in ("cold_start", "established"):
-        x = d[d["subset"] == s].set_index("model")
-        tbl[f"{s} (n={n_of('test', 'hard', s):,})"] = [fmt3(x, m) for m in models]
-    out += [report.to_md(tbl), ""]
     out += ["## Paired bootstrap tests (test)", "",
-            "Validation-best heuristic per protocol (by its headline metric) minus each other heuristic, "
-            "same test pairs; p-values are two-sided, floored at 0.001.", ""]
+            "Validation-best heuristic per protocol (by its headline metric: macro within-group for the pair-level "
+            "protocols; `prefer_newer` excluded) minus each other heuristic, same test pairs; p-values are two-sided, "
+            "floored at 0.001, not multiplicity-corrected (the corrected headline family is in "
+            "`results/final_comparison.md`).", ""]
     pv = paired[paired["metric"].str.endswith("_p_value")].set_index(["protocol", "model"])["value"]
     pd_ = paired[~paired["metric"].str.endswith("_p_value")].copy()
     pd_["difference [95% CI]"] = [report.fmt(*r) for r in pd_[["value", "ci_low", "ci_high"]].values]
     pd_["p"] = [f"{pv.loc[(p, m)]:.3f}" for p, m in zip(pd_["protocol"], pd_["model"])]
     out += [report.to_md(pd_[["protocol", "subset", "metric", "model", "difference [95% CI]", "p"]]), ""]
+    out += ["## Appendix", ""] + report.positives_only_appendix(get, models, "test")
     out += ["## Appendix: diagnostic_all_vs_hard", "", report.DIAGNOSTIC_WARNING, ""]
     for split in ("test", "val"):
         out += [f"### {split}", "", report.to_md(report.metric_table(
@@ -193,8 +184,8 @@ def main(argv=None) -> None:
     write_results(katz_rows, res_dir / "katz_beta_selection.csv", append=False)
     log.info("katz beta = %g (validation hard ROC-AUC) in %.0fs", beta, time.time() - t0)
 
-    models = list(cfg["models"]["heuristics"]["methods"]) + ["katz"]
-    scorers = {m: H.scorer(m) for m in models[:-1]}
+    models = list(cfg["models"]["heuristics"]["methods"]) + ["katz", "prefer_newer"]
+    scorers = {m: H.scorer(m) for m in models if m != "katz"}
     scorers["katz"] = H.KatzScorer(beta)
 
     rows, raw = [], {"val": {}, "test": {}}
@@ -209,12 +200,7 @@ def main(argv=None) -> None:
     write_results(rows, res_dir / "baselines.csv", append=False)
 
     # Best heuristic per protocol chosen on VALIDATION, compared on test.
-    df = pd.DataFrame(rows)
-    best = {}
-    for p in PROTOCOL_ORDER:
-        subset, metric = report.HEADLINE[p]
-        d = df[(df["split"] == "val") & (df["protocol"] == p) & (df["subset"] == subset) & (df["metric"] == metric)]
-        best[p] = d.sort_values(["value", "model"], ascending=[False, True])["model"].iloc[0]
+    best = report.val_best(pd.DataFrame(rows), PROTOCOL_ORDER)
     write_results(paired_rows(cfg, raw["test"], best, models), res_dir / "baselines_paired.csv", append=False)
     write_report(cfg, models, beta)
     log.info("validation-best per protocol: %s", best)

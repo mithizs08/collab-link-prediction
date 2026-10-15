@@ -34,7 +34,7 @@ from linkpred.config import load_config, set_seed  # noqa: E402
 from linkpred.data.splits import load_split  # noqa: E402
 from linkpred.eval import bootstrap as bs  # noqa: E402
 from linkpred.eval import report  # noqa: E402
-from linkpred.eval.protocols import PROTOCOL_ORDER, evaluate  # noqa: E402
+from linkpred.eval.protocols import PROTOCOL_ORDER, evaluate, paired_test  # noqa: E402
 from linkpred.features.build import load_features  # noqa: E402
 from linkpred.features.pair_features import ALL_FEATURES, FAMILIES  # noqa: E402
 from linkpred.models import feature_models as FM  # noqa: E402
@@ -48,7 +48,8 @@ ABLATIONS = {
     "structural+temporal": ["structural", "temporal"], "structural+text": ["structural", "text"],
     "all": ["structural", "temporal", "text"],
 }
-HEURISTICS = ["common_neighbors", "jaccard", "adamic_adar", "resource_allocation", "preferential_attachment", "katz"]
+HEURISTICS = ["common_neighbors", "jaccard", "adamic_adar", "resource_allocation", "preferential_attachment", "katz",
+              "prefer_newer"]
 
 
 def cols_for(families) -> list[str]:
@@ -56,7 +57,8 @@ def cols_for(families) -> list[str]:
 
 
 def headline(rows, split, protocol):
-    subset, metric = report.HEADLINE[protocol]
+    # Selection rules use the POOLED metric they were defined on (Phase 4), never the macro headline.
+    subset, metric = report.POOLED[protocol]
     for r in rows:
         if r["split"] == split and r["protocol"] == protocol and r["subset"] == subset and r["metric"] == metric:
             return r["value"]
@@ -77,12 +79,12 @@ class Experiment:
     def Xsets(self, split, columns):
         return {k: v[columns] for k, v in self.X[split].items()}
 
-    def fit(self, kind, columns, mix, seed, params=None, specialist=False, active=False):
+    def fit(self, kind, columns, mix, seed, params=None, specialist=False, active=False, d2_only=False):
         """active=True: pair-focused model (activity-matched training negatives, early stopping on
         validation hard_active AP). Otherwise early stopping on validation hard AP (Phase 4)."""
-        X, y = FM.training_set(self.splits["train"], self.feat["train"], columns, mix[0], mix[1], specialist, active)
+        X, y = FM.training_set(self.splits["train"], self.feat["train"], columns, mix[0], mix[1], specialist, active, d2_only)
         if kind == "logreg":
-            return FM.fit_logreg(X, y, columns, seed)
+            return FM.fit_logreg(X, y, columns, seed, C=self.cfg["models"]["logreg"]["C"])
         Xv, yv = FM.hard_eval_set(self.splits["val"], self.Xsets("val", columns),
                                   "neg_hard_active" if active else "neg_hard")
         return FM.fit_lightgbm(X, y, Xv, yv, params, seed)
@@ -93,9 +95,15 @@ class Experiment:
                         protocols=protocols, k_full=self.k_full, precomputed=scores)
 
     def heuristic_raw(self, split):
+        from linkpred.models.heuristics import prefer_newer
+        from linkpred.eval.protocols import PairScores
         out = {}
         for h in HEURISTICS:
-            pre = {k: v[h].values for k, v in self.X[split].items()}
+            if h == "prefer_newer":
+                sp_ = self.splits[split]
+                pre = {k: prefer_newer(sp_, sp_[t][a].values, sp_[t][b].values) for k, (t, a, b) in PairScores.SOURCES.items()}
+            else:
+                pre = {k: v[h].values for k, v in self.X[split].items()}
             rows, raw = evaluate(None, self.splits[split], split, h, self.seed, self.seed, 0,
                                  k_full=self.k_full, precomputed=pre)
             out[h] = (rows, raw)
@@ -107,7 +115,7 @@ def select_mix(grid_rows, kind):
     summ = []
     for m, d in df.groupby("model"):
         frac = float(m.split("hard=")[1].split("|")[0]); ratio = int(m.split("1:")[1])
-        get = lambda p: d[(d.protocol == p) & (d.subset == report.HEADLINE[p][0]) & (d.metric == report.HEADLINE[p][1])]["value"].iloc[0]
+        get = lambda p: d[(d.protocol == p) & (d.subset == report.POOLED[p][0]) & (d.metric == report.POOLED[p][1])]["value"].iloc[0]
         summ.append({"model": m, "frac": frac, "ratio": ratio, "hard": get("hard"), "rank_random": get("rank_random")})
     s = pd.DataFrame(summ)
     eligible = s[s["rank_random"] >= 0.9 * s["rank_random"].max()]
@@ -115,13 +123,12 @@ def select_mix(grid_rows, kind):
     return (float(best["frac"]), int(best["ratio"])), s
 
 
-def paired(cfg, model_raw, ref_raw, protocol, label_a, label_b, seed, neg_type):
-    subset, metric = report.HEADLINE[protocol]
-    ra, rb = model_raw[protocol][subset], ref_raw[protocol][subset]
+def paired(cfg, model_raw, ref_raw, protocol, label_a, label_b, seed, neg_type, subset=None, metric=None):
+    """Per-seed paired test (secondary robustness column; primary tests: results/final_comparison.md)."""
+    hs, hm = report.HEADLINE[protocol]
+    subset, metric = subset or hs, metric or hm
     rng = np.random.default_rng([cfg["seed"], 77, PROTOCOL_ORDER.index(protocol)])
-    n = cfg["evaluation"]["n_bootstrap"]
-    res = (bs.paired_classification(ra["pos"], ra["neg"], rb["pos"], rb["neg"], metric, rng, n) if "pos" in ra
-           else bs.paired_mean(ra[metric], rb[metric], rng, n))
+    res = paired_test(model_raw, ref_raw, protocol, subset, metric, rng, cfg["evaluation"]["n_bootstrap"])
     base = {"model": f"{label_a} - {label_b}", "split": "test", "protocol": protocol, "subset": subset,
             "negative_type": neg_type, "seed": seed}
     return [{**base, "metric": f"{metric}_diff", "value": res["diff"], "ci_low": res["ci_low"], "ci_high": res["ci_high"]},
@@ -143,7 +150,8 @@ def main(argv=None):
     res = Path(cfg["paths"]["results"])
     E = Experiment(cfg)
     lcfg = cfg["models"]["lightgbm"]
-    default = {k: lcfg[k] for k in ("learning_rate", "num_leaves", "min_child_samples", "subsample", "colsample_bytree")}
+    default = {k: lcfg[k] for k in ("learning_rate", "num_leaves", "min_child_samples", "subsample", "colsample_bytree",
+                                    "early_stopping_rounds")}
 
     # 1. negative-mix grid ------------------------------------------------------------
     t0 = time.time()
@@ -172,34 +180,41 @@ def main(argv=None):
         auc = headline(r, "val", "hard")
         if round(auc, 6) > round(best_auc, 6):
             best_auc, best_params = auc, p
-    # Pair-focused LightGBM: same grid, activity-matched training negatives (ratio of the chosen
-    # general mix), early stopping on val hard_active AP, selected by val hard_active ROC-AUC.
-    pf_params, pf_auc = None, -1
-    for nl, lr, mcs in itertools.product(sgrid["num_leaves"], sgrid["learning_rate"], sgrid["min_child_samples"]):
-        p = {**default, "num_leaves": nl, "learning_rate": lr, "min_child_samples": mcs}
-        m = E.fit("lightgbm", ALL_FEATURES, mix["lightgbm"], cfg["seed"], p, active=True)
-        name = f"lightgbm_pair_focused|leaves={nl}|lr={lr:g}|min_child={mcs}"
-        r, _ = E.evaluate(m, ALL_FEATURES, name, cfg["seed"], "val", 0, ("hard_active",))
-        r = [x for x in r if x["subset"] == "all"]
-        r.append({**r[0], "metric": "n_trees", "value": float(m.best_iteration_ or m.n_estimators)})
-        search_rows += r
-        auc = headline(r, "val", "hard_active")
-        if round(auc, 6) > round(pf_auc, 6):
-            pf_auc, pf_params = auc, p
+    # Pair-focused LightGBM: same grid, activity-matched training negatives (ratio of the chosen general
+    # mix), early stopping on val hard_active AP, selected by val POOLED hard_active ROC-AUC (as defined in
+    # Phase 5). Main model: distance-2 positives only (audit M1). The pre-audit construction (all positives,
+    # so distance >= 3 identifies a positive) is kept as "lightgbm_pair_focused_shortcut" for the appendix.
+    pf_params = {}
+    for pf_name, d2 in (("lightgbm_pair_focused", True), ("lightgbm_pair_focused_shortcut", False)):
+        best_pf, pf_auc = None, -1
+        for nl, lr, mcs in itertools.product(sgrid["num_leaves"], sgrid["learning_rate"], sgrid["min_child_samples"]):
+            p = {**default, "num_leaves": nl, "learning_rate": lr, "min_child_samples": mcs}
+            m = E.fit("lightgbm", ALL_FEATURES, mix["lightgbm"], cfg["seed"], p, active=True, d2_only=d2)
+            name = f"{pf_name}|leaves={nl}|lr={lr:g}|min_child={mcs}"
+            r, _ = E.evaluate(m, ALL_FEATURES, name, cfg["seed"], "val", 0, ("hard_active",))
+            r = [x for x in r if x["subset"] == "all"]
+            r.append({**r[0], "metric": "n_trees", "value": float(m.best_iteration_ or m.n_estimators)})
+            search_rows += r
+            auc = headline(r, "val", "hard_active")
+            if round(auc, 6) > round(pf_auc, 6):
+                pf_auc, best_pf = auc, p
+        pf_params[pf_name] = best_pf
+        log.info("%s search: %s (val pooled hard_active AUC %.4f)", pf_name, best_pf, pf_auc)
     write_results(search_rows, res / "lgbm_search.csv", append=False)
-    log.info("search done: %s (val hard AUC %.4f); pair-focused %s (val hard_active AUC %.4f)",
-             best_params, best_auc, pf_params, pf_auc)
+    log.info("search done: %s (val hard AUC %.4f)", best_params, best_auc)
 
     # 3. final models -------------------------------------------------------------------
     final_rows, raw = [], {}
-    specs = {"logreg": ("logreg", mix["logreg"], None, False, False),
-             "lightgbm": ("lightgbm", mix["lightgbm"], best_params, False, False),
-             "lightgbm_d2_specialist": ("lightgbm", mix["lightgbm"], best_params, True, False),
-             "lightgbm_pair_focused": ("lightgbm", mix["lightgbm"], pf_params, False, True)}
+    specs = {"logreg": ("logreg", mix["logreg"], None, False, False, False),
+             "lightgbm": ("lightgbm", mix["lightgbm"], best_params, False, False, False),
+             "lightgbm_d2_specialist": ("lightgbm", mix["lightgbm"], best_params, True, False, False),
+             "lightgbm_pair_focused": ("lightgbm", mix["lightgbm"], pf_params["lightgbm_pair_focused"], False, True, True),
+             "lightgbm_pair_focused_shortcut": ("lightgbm", mix["lightgbm"], pf_params["lightgbm_pair_focused_shortcut"],
+                                                False, True, False)}
     importances = []
-    for name, (kind, mx, params, spec, act) in specs.items():
+    for name, (kind, mx, params, spec, act, d2) in specs.items():
         for s in seeds:
-            m = E.fit(kind, ALL_FEATURES, mx, s, params, spec, act)
+            m = E.fit(kind, ALL_FEATURES, mx, s, params, spec, act, d2)
             if kind == "lightgbm":
                 importances.append(pd.DataFrame({"model": name, "seed": s, "feature": ALL_FEATURES,
                                                  "gain": m.booster_.feature_importance("gain")}))
@@ -217,11 +232,7 @@ def main(argv=None):
 
     # 4. paired tests on test -------------------------------------------------------------
     base = pd.read_csv(res / "baselines.csv")
-    val_best = {}
-    for p in GRID_PROTOCOLS:
-        subset, metric = report.HEADLINE[p]
-        d = base[(base.split == "val") & (base.protocol == p) & (base.subset == subset) & (base.metric == metric)]
-        val_best[p] = d.sort_values(["value", "model"], ascending=[False, True])["model"].iloc[0]
+    val_best = report.val_best(base, GRID_PROTOCOLS)
     href = E.heuristic_raw("test")
     prow = []
     for name in specs:
@@ -234,8 +245,11 @@ def main(argv=None):
                     prow += paired(cfg, raw[(name, s, "test")], href[h][1], p, name, h, s, neg_type)
             for p in PAIR_PROTOCOLS:
                 nt = "hard_active" if p.endswith("active") else "hard"
-                if name in ("lightgbm_d2_specialist", "lightgbm_pair_focused"):
+                if name in ("lightgbm_d2_specialist", "lightgbm_pair_focused", "lightgbm_pair_focused_shortcut"):
                     prow += paired(cfg, raw[(name, s, "test")], raw[("lightgbm", s, "test")], p, name, "lightgbm", s, nt)
+                if name == "lightgbm_pair_focused":
+                    prow += paired(cfg, raw[(name, s, "test")], raw[("lightgbm_pair_focused_shortcut", s, "test")], p, name,
+                                   "lightgbm_pair_focused_shortcut", s, nt)
     write_results(prow, res / "feature_models_paired.csv", append=False)
     log.info("paired tests done (%.0fs)", time.time() - t0)
 

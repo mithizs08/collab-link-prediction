@@ -47,15 +47,10 @@ splits:
   test:
     cutoff: 2025             # graph = works 2015-2024
     window_end: 2025
-  # Only predict between authors present in the observed graph at the cutoff
-  # (cold-start authors have no history; handled separately if at all).
-  require_both_nodes_seen: true
-  # Positives AND negatives are UTS-UTS pairs only. A UTS author for a split has at
-  # least one UTS-affiliated authorship in a work with year < cutoff (i.e. at or
-  # before the last graph year) -- never in the label window. The input graph
-  # (heuristics, features, message passing) still uses ALL authors and edges
-  # with year < cutoff.
-  target_population: uts_uts
+  # Fixed by design (implemented in linkpred/data/splits.py, not configurable): positives and
+  # negatives are UTS-UTS pairs of authors present in the input graph; a UTS author for a split has
+  # >= 1 UTS-affiliated authorship in a work with year < cutoff, never in the label window. The input
+  # graph (heuristics, features, message passing) uses ALL authors and edges with year < cutoff.
   # Cold-start diagnostic only (not a filter): fewer than 3 works before the cutoff.
   cold_start_max_works: 2
 
@@ -73,8 +68,9 @@ negatives:
 evaluation:
   # Protocols (docs/decisions.md, 2026-10-14): hard is the headline; diagnostic_all_vs_hard
   # is appendix-only. Bootstrap resamples are seeded from `seed`.
-  protocols: [hard, rank_random, rank_hard, random, diagnostic_all_vs_hard]
-  headline: {protocol: hard, metric: roc_auc}
+  protocols: [hard, rank_random, rank_hard, random, diagnostic_all_vs_hard, hard_active, rank_hard_active]
+  # Headline (2026-10-15, audit M2): macro within-group score for the pair-level protocols
+  # (report.HEADLINE); earlier selection rules keep the pooled metric they were defined on (report.POOLED).
   n_bootstrap: 1000
   rank_ks_random: [20, 50, 100]
   rank_ks_hard: [10, 20, 50]     # Hits@100 dropped: near-trivial with <= 101 items
@@ -82,13 +78,13 @@ evaluation:
 features:
   # Recency half-life (years) for recency-weighted CN / AA, chosen on validation (hard ROC-AUC).
   half_life_grid: [0.5, 1, 2, 3, 5, 10]
-  distance_cap: 5
+  # Shortest-path distance is capped at 5 (pair_features.DIST_CAP; fixed, not configurable).
 
 models:
   heuristics:
     methods: [common_neighbors, jaccard, adamic_adar, resource_allocation, preferential_attachment]
     katz:
-      max_path_length: 3     # walks of length 1..3
+      # Walks of length 1..3 (fixed in heuristics.katz_walk_counts).
       # Chosen on validation under the headline protocol (hard, ROC-AUC) only.
       betas: [0.0001, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
 

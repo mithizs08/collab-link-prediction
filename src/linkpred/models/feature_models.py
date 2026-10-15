@@ -23,7 +23,7 @@ from linkpred.features.pair_features import LOG1P
 
 
 def training_pairs(train: dict, hard_fraction: float, ratio: int, specialist: bool = False,
-                   active: bool = False) -> tuple[pd.DataFrame, np.ndarray]:
+                   active: bool = False, d2_only: bool = False) -> tuple[pd.DataFrame, np.ndarray]:
     """Training pairs (u_idx, v_idx) and labels for a negative mix (shared by all pair classifiers).
 
     active=True: pair-focused training -- all negatives are activity-matched hard negatives from the
@@ -31,8 +31,11 @@ def training_pairs(train: dict, hard_fraction: float, ratio: int, specialist: bo
     on the train window, which precedes the validation cutoff; model inputs are unchanged.
     """
     pos = train["positives"]
-    if specialist:
+    if specialist or d2_only:
+        # Distance-2 positives only. Required whenever all negatives are at distance 2 (hard /
+        # activity-matched): otherwise distance >= 3 alone identifies a positive (audit M1, Phase 4 rule).
         pos = pos[pos["distance"] == 2]
+    if specialist:
         hard_fraction = 1.0
     n_neg = ratio * len(pos)
     if active:
@@ -49,8 +52,8 @@ def training_pairs(train: dict, hard_fraction: float, ratio: int, specialist: bo
 
 
 def training_set(train: dict, feat: pd.DataFrame, columns: list[str], hard_fraction: float, ratio: int,
-                 specialist: bool = False, active: bool = False) -> tuple[pd.DataFrame, np.ndarray]:
-    pairs, y = training_pairs(train, hard_fraction, ratio, specialist, active)
+                 specialist: bool = False, active: bool = False, d2_only: bool = False) -> tuple[pd.DataFrame, np.ndarray]:
+    pairs, y = training_pairs(train, hard_fraction, ratio, specialist, active, d2_only)
     return features_for(feat, pairs["u_idx"].values, pairs["v_idx"].values, columns), y
 
 
@@ -82,19 +85,20 @@ def make_logreg(columns: list[str], C: float = 1.0):
                          LogisticRegression(C=C, max_iter=5000))
 
 
-def fit_logreg(X, y, columns, seed: int, C: float = 1.0):
+def fit_logreg(X, y, columns, seed: int, C: float = 1.0):  # C from config models.logreg.C
     # lbfgs is deterministic: the seed is recorded but cannot change the fit.
     m = make_logreg(columns, C)
     m.fit(X.values, y)
     return m
 
 
-def fit_lightgbm(X, y, Xval, yval, params: dict, seed: int, max_rounds: int = 2000, patience: int = 50):
+def fit_lightgbm(X, y, Xval, yval, params: dict, seed: int, max_rounds: int = 2000, patience: int | None = None):
     m = lgb.LGBMClassifier(
         n_estimators=max_rounds, learning_rate=params["learning_rate"], num_leaves=params["num_leaves"],
         min_child_samples=params["min_child_samples"], subsample=params["subsample"], subsample_freq=1,
         colsample_bytree=params["colsample_bytree"], reg_lambda=params.get("reg_lambda", 0.0),
         random_state=seed, deterministic=True, force_row_wise=True, n_jobs=4, verbose=-1)
+    patience = patience or params.get("early_stopping_rounds", 50)   # config models.lightgbm.early_stopping_rounds
     m.fit(X, y, eval_set=[(Xval, yval)], eval_metric="average_precision",
           callbacks=[lgb.early_stopping(patience, first_metric_only=True, verbose=False)])
     return m

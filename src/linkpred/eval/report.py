@@ -13,21 +13,45 @@ import pandas as pd
 
 from linkpred.data.audit import GRID, INK, INK_2, SERIES, SURFACE
 
-# Headline metric per protocol (and the subset it is read from).
+# Headline metric per protocol (and the subset it is read from). From 2026-10-15 (audit M2) the
+# pair-level protocols are headlined by the MACRO of the two within-group (group-matched) scores.
 HEADLINE = {
-    "hard": ("all", "roc_auc"),
-    "rank_hard": ("full_candidates", "mrr"),
+    "hard": ("macro", "roc_auc"),
+    "rank_hard": ("macro", "query_auc"),
     "rank_random": ("all", "mrr"),
     "random": ("all", "roc_auc"),
     "diagnostic_all_vs_hard": ("all", "roc_auc"),
-    "hard_active": ("all", "roc_auc"),
-    "rank_hard_active": ("full_candidates", "mrr"),
+    "hard_active": ("macro", "roc_auc"),
+    "rank_hard_active": ("macro", "query_auc"),
 }
+# The pooled metrics the earlier SELECTION rules were defined on (negative mix, LightGBM / pair-focused
+# search, node2vec and GNN grids). Kept so that changing the headline never silently changes a past choice.
+POOLED = {
+    "hard": ("all", "roc_auc"), "rank_hard": ("full_candidates", "mrr"), "rank_random": ("all", "mrr"),
+    "random": ("all", "roc_auc"), "diagnostic_all_vs_hard": ("all", "roc_auc"),
+    "hard_active": ("all", "roc_auc"), "rank_hard_active": ("full_candidates", "mrr"),
+}
+REFERENCE_MODELS = {"prefer_newer"}    # reference rows, never eligible as "best heuristic"
+POOLED_NOTE = "pooled — affected by newcomer imbalance"
+
+
+def val_best(base: pd.DataFrame, protocols, headline: dict | None = None) -> dict:
+    """Validation-best heuristic per protocol by its headline metric (reference models excluded)."""
+    headline = headline or HEADLINE
+    out = {}
+    for p in protocols:
+        subset, metric = headline[p]
+        d = base[(base.split == "val") & (base.protocol == p) & (base.subset == subset) & (base.metric == metric)
+                 & ~base.model.isin(REFERENCE_MODELS)]
+        out[p] = d.sort_values(["value", "model"], ascending=[False, True])["model"].iloc[0]
+    return out
+
+
 FIG_TITLES = {
-    "hard_active": "hard_active (lead, pair-level)\ndistance-2 positives vs activity-matched hard negatives",
-    "rank_hard_active": "rank_hard_active\nvs ≤100 active distance-2 candidates (full queries)",
-    "hard": "hard (headline)\ndistance-2 positives vs hard negatives",
-    "rank_hard": "rank_hard\nvs ≤100 distance-2 candidates (full queries)",
+    "hard_active": "hard_active, macro (lead)\nmean of within-group ROC-AUCs",
+    "rank_hard_active": "rank_hard_active, macro\nmean of within-group query AUCs",
+    "hard": "hard, macro (includes activity)\nmean of within-group ROC-AUCs",
+    "rank_hard": "rank_hard, macro (includes activity)\nmean of within-group query AUCs",
     "rank_random": "rank_random\nvs 100 random candidates",
     "random": "random (easy)\nall positives vs random negatives",
 }
@@ -104,8 +128,8 @@ def _bars(ax, d: pd.DataFrame, models: list[str], color: str, ref: float | None,
 
 
 PANELS = {
-    "hard_active": ("ROC-AUC", 0.5, (0, 1)), "rank_hard_active": ("MRR (full-candidate queries)", None, None),
-    "hard": ("ROC-AUC", 0.5, (0, 1)), "rank_hard": ("MRR (full-candidate queries)", None, None),
+    "hard_active": ("macro ROC-AUC", 0.5, (0, 1)), "rank_hard_active": ("macro query AUC", 0.5, (0, 1)),
+    "hard": ("macro ROC-AUC", 0.5, (0, 1)), "rank_hard": ("macro query AUC", 0.5, (0, 1)),
     "rank_random": ("MRR", RANDOM_MRR_101, None), "random": ("ROC-AUC", 0.5, (0, 1)),
 }
 
@@ -124,14 +148,15 @@ def protocol_figure(df: pd.DataFrame, split: str, models: list[str], path: Path,
         _style(ax, FIG_TITLES[p], label)
     fig.text(0.01, 0.005, f"{split} split; bars = point estimate, whiskers = bootstrap 95% CI; dashed = random ranker.{note}",
              fontsize=7, color=INK_2)
-    fig.tight_layout(rect=(0, 0.02, 1, 1))
+    fig.tight_layout(rect=(0, 0.035 if note else 0.02, 1, 1))
     fig.savefig(path, facecolor=SURFACE)
     plt.close(fig)
 
 
 def breakdown_figure(df: pd.DataFrame, split: str, models: list[str], path: Path) -> None:
-    subsets = ["distance=2", "distance=3", "distance=4+", "disconnected", "cold_start", "established"]
-    fig, axes = plt.subplots(2, 3, figsize=(12, 6.6), dpi=150, sharex=True)
+    # Cold-start panels removed (audit M2: positives-only strata); group-matched results are in the tables.
+    subsets = ["distance=2", "distance=3", "distance=4+", "disconnected"]
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6.6), dpi=150, sharex=True)
     fig.patch.set_facecolor(SURFACE)
     d0 = df[(df["protocol"] == "random") & (df["metric"] == "roc_auc") & (df["split"] == split)]
     n = df[(df["protocol"] == "random") & (df["metric"] == "n_positives") & (df["split"] == split)]
@@ -146,3 +171,51 @@ def breakdown_figure(df: pd.DataFrame, split: str, models: list[str], path: Path
     fig.tight_layout(rect=(0, 0.02, 1, 1))
     fig.savefig(path, facecolor=SURFACE)
     plt.close(fig)
+
+
+# ---------------------------------------------------------------- shared Markdown sections (audit M2)
+
+PAIR_LEVEL = ("hard_active", "rank_hard_active", "hard", "rank_hard")
+RANKING = {"rank_hard", "rank_hard_active"}
+TAGS = {"hard_active": "lead pair-level protocol", "rank_hard_active": "lead ranking protocol",
+        "hard": "includes activity", "rank_hard": "includes activity"}
+
+
+def pair_level_md(get, models: list[str], split: str, ks_hard=(10, 20, 50), protocols=PAIR_LEVEL) -> list[str]:
+    """get(model, split, protocol, subset, metric) -> formatted cell ('' if missing)."""
+    out = []
+    for p in protocols:
+        main, second = ("query_auc", "mrr") if p in RANKING else ("roc_auc", "average_precision")
+        t = pd.DataFrame({"model": models})
+        t[f"macro {main} (headline)"] = [get(m, split, p, "macro", main) for m in models]
+        t[f"established {main}"] = [get(m, split, p, "established_matched", main) for m in models]
+        t[f"newcomer {main}"] = [get(m, split, p, "newcomer_matched", main) for m in models]
+        t[f"macro {second}"] = [get(m, split, p, "macro", second) for m in models]
+        note = (" Ranking: candidates are restricted to the query's group, so candidate counts vary; query AUC "
+                "(count-independent) is the headline, MRR is secondary." if p in RANKING else "")
+        out += [f"### {p} — within-group, macro ({TAGS[p]})", "",
+                "Positives and negatives/candidates from the same group (established: no author with ≤ 2 prior "
+                "works; newcomer: at least one). Macro = mean of the two." + note, "", to_md(t), ""]
+        if p in RANKING:
+            pm = [f"hits@{k}" for k in ks_hard] + ["mrr", "query_auc"]
+            sub = "full_candidates"
+        else:
+            pm, sub = ["roc_auc", "average_precision"], "all"
+        t = pd.DataFrame({"model": models})
+        for m_ in pm:
+            t[m_] = [get(m, split, p, sub, m_) for m in models]
+        out += [f"#### {p} — pooled ({sub}; {POOLED_NOTE})", "", to_md(t), ""]
+    return out
+
+
+def positives_only_appendix(get, models: list[str], split: str, protocols=PAIR_LEVEL) -> list[str]:
+    rows = []
+    for p in protocols:
+        metric = "query_auc" if p in RANKING else "roc_auc"
+        for sub in ("cold_start", "established"):
+            rows.append({"protocol / subset": f"{p} {metric} — {sub} (positives only)",
+                         **{m: get(m, split, p, sub, metric) for m in models}})
+    return ["### Superseded: cold-start breakdown with positives-only strata", "",
+            "> Kept for the record. These strata restricted only the POSITIVES and kept all negatives, so they "
+            "partly measured the newcomer imbalance between positives and negatives (audit M2). Use the "
+            "within-group tables above instead.", "", to_md(pd.DataFrame(rows)), ""]
