@@ -31,44 +31,46 @@ Sources: `results/final_comparison.csv` (all rows except two_stage), `results/tw
 | gnn_pair_focused_sage_structural (best GNN; trained with the distance shortcut, shortcut check 0.775) | 0.640 [0.617, 0.662] ±0.002 | 0.619 [0.604, 0.634] ±0.003 | 0.574 [0.556, 0.591] ±0.016 | 0.281 [0.267, 0.295] ±0.006 |
 | lightgbm_pair_focused+gnn_pair_focused_sage_structural (hybrid; built on the shortcut-trained GNN) | 0.808 [0.790, 0.825] ±0.001 | 0.795 [0.783, 0.807] ±0.002 | 0.793 [0.779, 0.807] ±0.007 | 0.873 [0.862, 0.883] ±0.013 |
 
-## 2. Primary comparisons (test; one paired bootstrap on seed-averaged scores, Holm across the 32-test family)
+## 2. Primary comparisons (test; one paired bootstrap on seed-averaged scores, Holm across the 34-test family)
 
 Family defined in `docs/decisions.md` ("Phase 7 design", extended in "RQ2 design") before the corresponding test runs. Source: `results/final_comparison_tests.csv`. Smallest attainable raw p = 0.0002 (5,000 resamples).
 
 | comparison | metric | difference [95% CI] | raw p | Holm p | significant (Holm < 0.05) |
 |---|---|---|---|---|---|
-| prefer_newer - adamic_adar | hard_active macro roc_auc | -0.148 [-0.177, -0.118] | 0.0002 | 0.0064 | yes |
-| prefer_newer - adamic_adar | rank_hard_active macro query_auc | -0.148 [-0.169, -0.128] | 0.0002 | 0.0064 | yes |
+| prefer_newer - adamic_adar | hard_active macro roc_auc | -0.148 [-0.177, -0.118] | 0.0002 | 0.0068 | yes |
+| prefer_newer - adamic_adar | rank_hard_active macro query_auc | -0.148 [-0.169, -0.128] | 0.0002 | 0.0068 | yes |
 | jaccard - adamic_adar | hard_active macro roc_auc | -0.034 [-0.057, -0.011] | 0.0052 | 0.0208 | yes |
 | jaccard - adamic_adar | rank_hard_active macro query_auc | +0.016 [+0.002, +0.030] | 0.0268 | 0.0536 | no |
-| logreg - adamic_adar | hard_active macro roc_auc | +0.038 [+0.017, +0.059] | 0.0002 | 0.0064 | yes |
-| logreg - adamic_adar | rank_hard_active macro query_auc | +0.064 [+0.049, +0.079] | 0.0002 | 0.0064 | yes |
-| lightgbm - adamic_adar | hard_active macro roc_auc | +0.027 [+0.009, +0.044] | 0.0012 | 0.0072 | yes |
-| lightgbm - adamic_adar | rank_hard_active macro query_auc | +0.057 [+0.043, +0.070] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused - adamic_adar | hard_active macro roc_auc | +0.074 [+0.058, +0.091] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused - adamic_adar | rank_hard_active macro query_auc | +0.093 [+0.081, +0.106] | 0.0002 | 0.0064 | yes |
-| node2vec - adamic_adar | hard_active macro roc_auc | -0.135 [-0.164, -0.107] | 0.0002 | 0.0064 | yes |
-| node2vec - adamic_adar | rank_hard_active macro query_auc | -0.078 [-0.098, -0.059] | 0.0002 | 0.0064 | yes |
-| gnn_pair_focused_sage_structural - adamic_adar | hard_active macro roc_auc | -0.084 [-0.114, -0.053] | 0.0002 | 0.0064 | yes |
-| gnn_pair_focused_sage_structural - adamic_adar | rank_hard_active macro query_auc | -0.079 [-0.100, -0.057] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused+gnn_pair_focused_sage_structural - adamic_adar | hard_active macro roc_auc | +0.083 [+0.067, +0.100] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused+gnn_pair_focused_sage_structural - adamic_adar | rank_hard_active macro query_auc | +0.099 [+0.087, +0.111] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused+gnn_pair_focused_sage_structural - lightgbm_pair_focused | hard_active macro roc_auc | +0.009 [+0.005, +0.014] | 0.0002 | 0.0064 | yes |
+| logreg - adamic_adar | hard_active macro roc_auc | +0.038 [+0.017, +0.059] | 0.0002 | 0.0068 | yes |
+| logreg - adamic_adar | rank_hard_active macro query_auc | +0.064 [+0.049, +0.079] | 0.0002 | 0.0068 | yes |
+| lightgbm - adamic_adar | hard_active macro roc_auc | +0.027 [+0.009, +0.044] | 0.0012 | 0.0084 | yes |
+| lightgbm - adamic_adar | rank_hard_active macro query_auc | +0.057 [+0.043, +0.070] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused - adamic_adar | hard_active macro roc_auc | +0.074 [+0.058, +0.091] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused - adamic_adar | rank_hard_active macro query_auc | +0.093 [+0.081, +0.106] | 0.0002 | 0.0068 | yes |
+| node2vec - adamic_adar | hard_active macro roc_auc | -0.135 [-0.164, -0.107] | 0.0002 | 0.0068 | yes |
+| node2vec - adamic_adar | rank_hard_active macro query_auc | -0.078 [-0.098, -0.059] | 0.0002 | 0.0068 | yes |
+| gnn_pair_focused_sage_structural - adamic_adar | hard_active macro roc_auc | -0.084 [-0.114, -0.053] | 0.0002 | 0.0068 | yes |
+| gnn_pair_focused_sage_structural - adamic_adar | rank_hard_active macro query_auc | -0.079 [-0.100, -0.057] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused+gnn_pair_focused_sage_structural - adamic_adar | hard_active macro roc_auc | +0.083 [+0.067, +0.100] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused+gnn_pair_focused_sage_structural - adamic_adar | rank_hard_active macro query_auc | +0.099 [+0.087, +0.111] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused+gnn_pair_focused_sage_structural - lightgbm_pair_focused | hard_active macro roc_auc | +0.009 [+0.005, +0.014] | 0.0002 | 0.0068 | yes |
 | lightgbm_pair_focused+gnn_pair_focused_sage_structural - lightgbm_pair_focused | rank_hard_active macro query_auc | +0.006 [+0.002, +0.010] | 0.0036 | 0.0180 | yes |
-| lightgbm_pair_focused - lightgbm | hard_active macro roc_auc | +0.048 [+0.036, +0.060] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused - lightgbm | rank_hard_active macro query_auc | +0.037 [+0.026, +0.047] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids | hard_active macro roc_auc | +0.071 [+0.049, +0.095] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids | rank_hard_active macro query_auc | +0.090 [+0.070, +0.109] | 0.0002 | 0.0064 | yes |
-| two_stage - lightgbm | hard all roc_auc | -0.010 [-0.016, -0.005] | 0.0002 | 0.0064 | yes |
+| lightgbm_pair_focused - lightgbm | hard_active macro roc_auc | +0.048 [+0.036, +0.060] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused - lightgbm | rank_hard_active macro query_auc | +0.037 [+0.026, +0.047] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids | hard_active macro roc_auc | +0.071 [+0.049, +0.095] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids | rank_hard_active macro query_auc | +0.090 [+0.070, +0.109] | 0.0002 | 0.0068 | yes |
+| two_stage - lightgbm | hard all roc_auc | -0.010 [-0.016, -0.005] | 0.0002 | 0.0068 | yes |
 | two_stage - lightgbm | hard macro roc_auc | -0.007 [-0.012, -0.001] | 0.0100 | 0.0300 | yes |
-| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | hard_active macro roc_auc | +0.023 [+0.013, +0.033] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | rank_hard_active macro query_auc | +0.027 [+0.019, +0.036] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | hard_active established_matched roc_auc | +0.027 [+0.017, +0.037] | 0.0002 | 0.0064 | yes |
+| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | hard_active macro roc_auc | +0.023 [+0.013, +0.033] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | rank_hard_active macro query_auc | +0.027 [+0.019, +0.036] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | hard_active established_matched roc_auc | +0.027 [+0.017, +0.037] | 0.0002 | 0.0068 | yes |
 | lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | hard_active newcomer_matched roc_auc | +0.019 [+0.002, +0.036] | 0.0272 | 0.0536 | no |
-| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | rank_hard_active established_matched query_auc | +0.025 [+0.018, +0.033] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | rank_hard_active newcomer_matched query_auc | +0.029 [+0.014, +0.044] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused[all] - lightgbm_pair_focused[structural+text] | hard_active macro roc_auc | +0.022 [+0.016, +0.030] | 0.0002 | 0.0064 | yes |
-| lightgbm_pair_focused[all] - lightgbm_pair_focused[structural+text] | rank_hard_active macro query_auc | +0.025 [+0.018, +0.032] | 0.0002 | 0.0064 | yes |
+| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | rank_hard_active established_matched query_auc | +0.025 [+0.018, +0.033] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused[structural+text] - lightgbm_pair_focused[structural] | rank_hard_active newcomer_matched query_auc | +0.029 [+0.014, +0.044] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused[all] - lightgbm_pair_focused[structural+text] | hard_active macro roc_auc | +0.022 [+0.016, +0.030] | 0.0002 | 0.0068 | yes |
+| lightgbm_pair_focused[all] - lightgbm_pair_focused[structural+text] | rank_hard_active macro query_auc | +0.025 [+0.018, +0.032] | 0.0002 | 0.0068 | yes |
+| two_stage_calibrated - lightgbm | hard all roc_auc | -0.013 [-0.018, -0.007] | 0.0002 | 0.0068 | yes |
+| two_stage_calibrated - lightgbm | hard macro roc_auc | -0.008 [-0.014, -0.003] | 0.0028 | 0.0168 | yes |
 
 ## 3. RQ2: text ablation of the pair-focused LightGBM (`results/rq2_text_ablation.csv`, `_tests.csv`)
 
@@ -92,16 +94,16 @@ Same model, parameters, mix and seeds (not re-tuned per feature set); structural
 
 **Paired tests (test)**
 
-| comparison | metric | difference [95% CI] | raw p | Holm p (32-test family) |
+| comparison | metric | difference [95% CI] | raw p | Holm p (whole family) |
 |---|---|---|---|---|
-| structural+text − structural | hard_active macro roc_auc | +0.023 [+0.013, +0.033] | 0.0002 | 0.0064 |
-| structural+text − structural | rank_hard_active macro query_auc | +0.027 [+0.019, +0.036] | 0.0002 | 0.0064 |
-| structural+text − structural | hard_active established_matched roc_auc | +0.027 [+0.017, +0.037] | 0.0002 | 0.0064 |
+| structural+text − structural | hard_active macro roc_auc | +0.023 [+0.013, +0.033] | 0.0002 | 0.0068 |
+| structural+text − structural | rank_hard_active macro query_auc | +0.027 [+0.019, +0.036] | 0.0002 | 0.0068 |
+| structural+text − structural | hard_active established_matched roc_auc | +0.027 [+0.017, +0.037] | 0.0002 | 0.0068 |
 | structural+text − structural | hard_active newcomer_matched roc_auc | +0.019 [+0.002, +0.036] | 0.0272 | 0.0536 |
-| structural+text − structural | rank_hard_active established_matched query_auc | +0.025 [+0.018, +0.033] | 0.0002 | 0.0064 |
-| structural+text − structural | rank_hard_active newcomer_matched query_auc | +0.029 [+0.014, +0.044] | 0.0002 | 0.0064 |
-| all − structural+text | hard_active macro roc_auc | +0.022 [+0.016, +0.030] | 0.0002 | 0.0064 |
-| all − structural+text | rank_hard_active macro query_auc | +0.025 [+0.018, +0.032] | 0.0002 | 0.0064 |
+| structural+text − structural | rank_hard_active established_matched query_auc | +0.025 [+0.018, +0.033] | 0.0002 | 0.0068 |
+| structural+text − structural | rank_hard_active newcomer_matched query_auc | +0.029 [+0.014, +0.044] | 0.0002 | 0.0068 |
+| all − structural+text | hard_active macro roc_auc | +0.022 [+0.016, +0.030] | 0.0002 | 0.0068 |
+| all − structural+text | rank_hard_active macro query_auc | +0.025 [+0.018, +0.032] | 0.0002 | 0.0068 |
 
 ## 4. Robustness
 
@@ -135,19 +137,20 @@ Hadamard classifier transferred 0.905 vs fitted within validation 0.901; the sel
 
 ### RQ1. How much do learned models (GNNs, embeddings, feature models) improve over simple graph heuristics for predicting new collaborations?
 
-1. **Feature models improve on heuristics, modestly; representation learning does not.** The pair-focused LightGBM is the best model: macro hard_active 0.799 and macro rank_hard_active 0.792, vs Adamic-Adar 0.725 / 0.699 (+0.074 [+0.058, +0.091], Holm p = 0.0064; +0.093 [+0.081, +0.106], Holm p = 0.0064). General feature models gain much less: logistic regression 0.763, general LightGBM 0.751 (LightGBM − AA +0.027 [+0.009, +0.044], Holm p = 0.0072). An AUC of about 0.80 means about one in five positive–negative comparisons is ranked the wrong way round: useful for ranking candidates, not for predicting individual collaborations.
-2. **Embeddings and GNNs lost to Adamic-Adar.** node2vec 0.561 and the best GNN 0.640 on macro hard_active (node2vec − AA -0.135 [-0.164, -0.107], Holm p = 0.0064; GNN − AA -0.084 [-0.114, -0.053], Holm p = 0.0064). The GNN was trained with the distance shortcut (section 6), so its ceiling is unknown without retraining. Its out-of-fold score added to the pair-focused LightGBM (hybrid, secondary) changes macro hard_active by +0.009 [+0.005, +0.014], Holm p = 0.0064: under a hundredth of AUC, from a shortcut-trained model.
-3. **The RQ1 answer survives the robustness checks, which are limited.** With the flagged possible-duplicate author IDs removed, the pair-focused LightGBM still beats Adamic-Adar (0.780 vs 0.710, +0.071 [+0.049, +0.095], Holm p = 0.0064), but the heuristic flag removes 46% of the test distance-2 positives (section 4.2). Extending the hyperparameter grid left test macro hard_active at 0.799 (section 4.1).
+1. **Feature models improve on heuristics, modestly; representation learning does not.** The pair-focused LightGBM is the best model: macro hard_active 0.799 and macro rank_hard_active 0.792, vs Adamic-Adar 0.725 / 0.699 (+0.074 [+0.058, +0.091], Holm p = 0.0068; +0.093 [+0.081, +0.106], Holm p = 0.0068). General feature models gain much less: logistic regression 0.763, general LightGBM 0.751 (LightGBM − AA +0.027 [+0.009, +0.044], Holm p = 0.0084). An AUC of about 0.80 means about one in five positive–negative comparisons is ranked the wrong way round: useful for ranking candidates, not for predicting individual collaborations.
+2. **Embeddings and GNNs lost to Adamic-Adar.** node2vec 0.561 and the best GNN 0.640 on macro hard_active (node2vec − AA -0.135 [-0.164, -0.107], Holm p = 0.0068; GNN − AA -0.084 [-0.114, -0.053], Holm p = 0.0068). The GNN was trained with the distance shortcut (section 6), so its ceiling is unknown without retraining. Its out-of-fold score added to the pair-focused LightGBM (hybrid, secondary) changes macro hard_active by +0.009 [+0.005, +0.014], Holm p = 0.0068: under a hundredth of AUC, from a shortcut-trained model.
+3. **The RQ1 answer survives the robustness checks, which are limited.** With the flagged possible-duplicate author IDs removed, the pair-focused LightGBM still beats Adamic-Adar (0.780 vs 0.710, +0.071 [+0.049, +0.095], Holm p = 0.0068), but the heuristic flag removes 46% of the test distance-2 positives (section 4.2). Extending the hyperparameter grid left test macro hard_active at 0.799 (section 4.1).
 
 ### RQ2. Do topical signals (what researchers publish on) add predictive value beyond network structure?
 
-4. **Yes, a small, consistent amount.** Adding the 4 text features to the 14 structural ones raises the pair-focused LightGBM from 0.754 to 0.777 macro hard_active (+0.023 [+0.013, +0.033], Holm p = 0.0064) and from 0.740 to 0.767 macro rank_hard_active (+0.027 [+0.019, +0.036], Holm p = 0.0064); validation shows the same direction (section 3). The gain is present in both groups on the ranking task (established +0.025 [+0.018, +0.033], Holm p = 0.0064; newcomer +0.029 [+0.014, +0.044], Holm p = 0.0064) and for established pairs on hard_active (+0.027 [+0.017, +0.037], Holm p = 0.0064); for newcomer pairs on hard_active it is +0.019 [+0.002, +0.036], Holm p = 0.0536, not significant after correction (validation: not significant either).
-5. **Text is worth about as much as the temporal block, and neither replaces structure.** Adding the 9 temporal features on top of structural+text adds a further +0.022 [+0.016, +0.030], Holm p = 0.0064 (hard_active). Even with all 27 features the model is at 0.799, and structure alone already gets 0.754: what researchers publish on helps, but most of what the model can separate among friend-of-friend pairs is structural. (The temporal increment is measured on top of text; the order of adding blocks is fixed by the design, not tested both ways.)
+4. **Yes, a small, consistent amount.** Adding the 4 text features to the 14 structural ones raises the pair-focused LightGBM from 0.754 to 0.777 macro hard_active (+0.023 [+0.013, +0.033], Holm p = 0.0068) and from 0.740 to 0.767 macro rank_hard_active (+0.027 [+0.019, +0.036], Holm p = 0.0068); validation shows the same direction (section 3). The gain is present in both groups on the ranking task (established +0.025 [+0.018, +0.033], Holm p = 0.0068; newcomer +0.029 [+0.014, +0.044], Holm p = 0.0068) and for established pairs on hard_active (+0.027 [+0.017, +0.037], Holm p = 0.0068); for newcomer pairs on hard_active it is +0.019 [+0.002, +0.036], Holm p = 0.0536, not significant after correction (validation: not significant either).
+5. **Text is worth about as much as the temporal block, and neither replaces structure.** Adding the 9 temporal features on top of structural+text adds a further +0.022 [+0.016, +0.030], Holm p = 0.0068 (hard_active). Even with all 27 features the model is at 0.799, and structure alone already gets 0.754: what researchers publish on helps, but most of what the model can separate among friend-of-friend pairs is structural. Adding the blocks in the other order (exploratory, Phase 8, `results/rq2_block_order_exploratory_tests.csv`) gives text a similar increment after temporal, so the answer does not depend on the order.
 
-### RQ3. Which features drive predictions, and where do models fail (e.g. newcomers, cross-discipline pairs)? — preliminary; completed in Phase 8
+### RQ3. Which features drive predictions, and where do models fail (e.g. newcomers, cross-discipline pairs)? — complete (Phase 8; details in `docs/explainability.md`)
 
-6. **Drivers (preliminary; gain importance, `report/features/importance.csv`).** For the pair-focused LightGBM the gain splits 52% temporal, 33% text, 15% structural; the top features are `rw_aa` (40%), `nbr_text_sim_max` (27%), `rw_cn` (4%). Caveats: gain is not causal, correlated features share credit, and `rw_aa` / `rw_cn` (classed temporal) are recency-weighted Adamic-Adar and common-neighbour counts, i.e. structure weighted by how recent the shared ties are.
-7. **Failures (preliminary).** Newcomer pairs are harder than established ones for the headline model (hard_active 0.783 vs 0.815; rank_hard_active 0.786 vs 0.798). The model is a specialist: on random pairs it scores 0.912 vs 0.982 for the general LightGBM, so it should only rank friend-of-friend candidates. Cross-discipline pairs have not been analysed yet; that, per-feature attributions and an error analysis are Phase 8.
+6. **Drivers.** SHAP on the headline model (seed 0, test hard_active pairs; validation shares in `results/shap_importance.csv` differ by at most 0.007): time-weighted structure (recency-weighted Adamic-Adar / common neighbours) 28% of mean |SHAP|, text similarity 28%, pure structure 25%, author activity / career 19%. Filed by code block it looks "temporal" (47%); by meaning, it is mostly recent shared structure and topic. The model has 2-leaf trees, so it is additive (no interactions). Gain importance (`report/features/importance.csv`) puts 52% on the temporal block, overstating `rw_aa`; the ablations (section 3 and the exploratory block-order run, `results/rq2_block_order_exploratory*.csv`) show each block adds about 0.02 in either order.
+7. **Activity and distance are what the models use when the evaluation lets them.** The general LightGBM's activity attributions discriminate on pooled hard (SHAP AUC 0.74) but point the wrong way among activity-matched pairs (0.41); the pair-focused GNN treats a shared co-author as evidence AGAINST a link: removing the shared paths raises its logit (`results/gnn_explanations.csv`).
+8. **Failures.** (a) Newcomer pairs are harder for every model; none does better on newcomers once negatives are group-matched (headline: hard_active 0.783 newcomer vs 0.815 established). (b) Missed collaborations are topically distant and more often cross-field (H2, both groups). (c) Confident false positives among established pairs sit in dense, topically close neighbourhoods (H1); on validation 4 of the top 100 co-author the next year vs 0.7% of all negatives (right-censoring; not checkable on test). (d) Cross-field pairs are NOT a weak spot: ROC-AUC 0.830 cross-field vs 0.792 same-field (test), under a coarse definition (modal OpenAlex field per author, 26 fields). (e) The headline model is a specialist (random pairs 0.912 vs 0.982 for the general LightGBM), and no model's scores are probabilities (`results/calibration.csv`).
 
 ## 6. Emergent findings (not pre-specified)
 
@@ -156,7 +159,7 @@ These shaped the evaluation design but answer none of the three research questio
 - **Activity confound.** Protocols whose negatives are not activity-matched mostly measure who keeps publishing. The general LightGBM scores 0.864 on pooled hard but 0.751 on macro hard_active; in its ablation (`results/ablation.csv`) temporal features alone reach 0.840 macro hard but 0.707 macro hard_active. This is why `hard_active` is the headline.
 - **Newcomer imbalance.** Activity matching makes newcomers rare among negatives, so pooled numbers reward newcomer status. The prefer_newer reference (no pair information) scores 0.647 on pooled hard_active but 0.578 macro; the headline therefore compares within groups.
 - **Distance shortcut.** Training on distance-2 negatives with positives at any distance lets distance alone separate the classes (`results/gnn_shortcut_check.csv`: ROC-AUC of far random negatives vs distance-2 positives, > 0.5 = shortcut): pre-fix pair-focused LightGBM 1.000, retrained 0.015, best GNN 0.775. The LightGBM was retrained; the Colab GNNs were not, which is the caveat on every GNN and hybrid row.
-- **Two-stage model does not help.** P(both active) × pair-focused LightGBM scores 0.854 on pooled hard vs 0.864 for the general LightGBM (-0.010 [-0.016, -0.005], Holm p = 0.0064; macro hard -0.007 [-0.012, -0.001], Holm p = 0.0300), although its stage-1 activity model (`activity_lightgbm|leaves=3|lr=0.03|min_child=100`, validation activity ROC-AUC 0.875, test 0.881) is good at its own task. The general model already learns activity jointly with the pair signal; the product of two separately trained probabilities loses that. Validation showed the same before test was run (`results/two_stage.csv`).
+- **Two-stage model does not help.** P(both active) × pair-focused LightGBM scores 0.854 on pooled hard vs 0.864 for the general LightGBM (-0.010 [-0.016, -0.005], Holm p = 0.0068; macro hard -0.007 [-0.012, -0.001], Holm p = 0.0300), although its stage-1 activity model (`activity_lightgbm|leaves=3|lr=0.03|min_child=100`, validation activity ROC-AUC 0.875, test 0.881) is good at its own task. The general model already learns activity jointly with the pair signal; the product of two separately trained probabilities loses that. Validation showed the same before test was run (`results/two_stage.csv`). Calibrating both components on training-split out-of-fold predictions (Phase 8) does not close the gap: -0.013 [-0.018, -0.007], Holm p = 0.0068 on pooled hard (`results/calibrated_two_stage*.csv`).
 
 | model | pooled hard ROC-AUC (includes activity) | macro hard ROC-AUC (includes activity) | macro hard_active ROC-AUC | macro rank_hard_active query AUC |
 |---|---|---|---|---|

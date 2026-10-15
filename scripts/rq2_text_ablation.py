@@ -10,6 +10,12 @@ rank_hard_active and within each group; all - structural+text on the two macro m
 across the predefined family in final_comparison.py.
 
 Outputs: results/rq2_text_ablation.csv, results/rq2_text_ablation_tests.csv.
+
+  python scripts/rq2_text_ablation.py --block-order --splits val test
+
+EXPLORATORY (Phase 8, step 2; not in the Holm family): the same model on structural+temporal (no text), so the order
+of adding blocks is tested both ways: structural+temporal - structural, and all - structural+temporal (= text added
+last). Outputs: results/rq2_block_order_exploratory.csv, results/rq2_block_order_exploratory_tests.csv (raw p only).
 """
 
 from __future__ import annotations
@@ -52,7 +58,15 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/default.yaml")
     ap.add_argument("--splits", nargs="+", default=["val"], choices=["val", "test"])
+    ap.add_argument("--block-order", action="store_true", help="exploratory: structural+temporal set (not in family)")
     args = ap.parse_args(argv)
+    sets, tests_def, out = SETS, TESTS, "rq2_text_ablation"
+    if args.block_order:
+        sets = {"structural": ["structural"], "structural+temporal": ["structural", "temporal"],
+                "all": ["structural", "temporal", "text"]}
+        tests_def = (("structural+temporal", "structural", (HA_M, RK_M) + GROUPS),
+                     ("all", "structural+temporal", (HA_M, RK_M) + GROUPS))
+        out = "rq2_block_order_exploratory"
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     cfg = load_config(args.config)
     set_seed(cfg["seed"])
@@ -61,8 +75,8 @@ def main(argv=None):
     E = Experiment(cfg)
     pfp = search_best(cfg, PF)
     lmix = select_mix(pd.read_csv(res / "negative_mix_grid.csv").to_dict("records"), "lightgbm")[0]
-    sc = {lab: {s: [] for s in args.splits} for lab in SETS}
-    for lab, fams in SETS.items():
+    sc = {lab: {s: [] for s in args.splits} for lab in sets}
+    for lab, fams in sets.items():
         cols = [c for f in fams for c in FAMILIES[f]]
         for seed in cfg["seeds"]:
             m = E.fit("lightgbm", cols, lmix, seed, pfp, active=True, d2_only=True)
@@ -72,17 +86,17 @@ def main(argv=None):
     rows, tests = [], []
     for split in args.splits:
         sp_ = E.splits[split]
-        for i, lab in enumerate(SETS):
+        for i, lab in enumerate(sets):
             rows += summary_rows(name(lab), split, raws(sp_, split, name(lab), sc[lab][split], PROTOS, cfg), CELLS, cfg,
                                  n_boot, 101 + i)
-        A = {lab: averaged(sp_, split, name(lab), sc[lab][split], PROTOS, cfg) for lab in SETS}
-        for k, (a, b, cells) in enumerate(TESTS):
+        A = {lab: averaged(sp_, split, name(lab), sc[lab][split], PROTOS, cfg) for lab in sets}
+        for k, (a, b, cells) in enumerate(tests_def):
             tests += test_rows(f"{name(a)} - {name(b)}", split, A[a], A[b], cells, cfg, n_boot, 111 + k)
         for r in rows + tests:
             if r["split"] == split and not r["metric"].endswith("_sd"):
                 print(split, r["model"], r["protocol"], r["subset"], r["metric"], round(r["value"], 4), flush=True)
-    write_results(rows, res / "rq2_text_ablation.csv", append=False)
-    write_results(tests, res / "rq2_text_ablation_tests.csv", append=False)
+    write_results(rows, res / f"{out}.csv", append=False)
+    write_results(tests, res / f"{out}_tests.csv", append=False)
 
 
 if __name__ == "__main__":

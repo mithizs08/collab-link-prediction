@@ -53,3 +53,8 @@ env/
 # Colab bundle (Phase 6) -- rebuilt by scripts/make_colab_bundle.py, never committed
 colab_bundle.tar.gz
 *.tar.gz
+
+# Phase 8: per-pair SHAP samples are regenerable figure inputs (scripts/phase8_shap.py), ~20 MB; the small
+# partial-dependence tables that docs/explainability.md cites are kept.
+report/shap/*.csv
+!report/shap/partial_dependence_*.csv

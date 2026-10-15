@@ -20,7 +20,8 @@ docs/decisions.md, "Phase 7 design"):
   Phase 7: disambiguation sensitivity, pair-focused LightGBM minus Adamic-Adar on the reduced data, on both
   headline metrics (2; raw p from results/disambiguation_sensitivity_tests.csv); two-stage minus general
   LightGBM on pooled and macro hard ROC-AUC (2; raw p from results/two_stage_tests.csv); RQ2 text ablation of the
-  pair-focused LightGBM (8; results/rq2_text_ablation_tests.csv)                       (32 tests)
+  pair-focused LightGBM (8; results/rq2_text_ablation_tests.csv); Phase 8: calibrated two-stage minus general
+  LightGBM on pooled and macro hard ROC-AUC (2; results/calibrated_two_stage_tests.csv)  (34 tests)
   `--holm-only` re-applies Holm across the family from the saved raw p-values (no bootstrap re-run).
 Each test: one paired bootstrap (evaluation.n_bootstrap_final = 5,000 resamples) on the seed-AVERAGED scores.
 
@@ -58,8 +59,9 @@ EXTRA = (("hard_active", "established_matched", "roc_auc"), ("hard_active", "new
          ("hard", "macro", "roc_auc"), ("rank_hard", "macro", "query_auc"),
          ("hard_active", "all", "roc_auc"), ("rank_hard_active", "full_candidates", "mrr"),
          ("hard", "all", "roc_auc"), ("random", "all", "roc_auc"))
-PHASE7_TESTS = ("disambiguation_sensitivity_tests.csv", "two_stage_tests.csv", "rq2_text_ablation_tests.csv")
-FAMILY_SIZE = 32   # docs/decisions.md: 20 + Phase 7 (4) + RQ2 text ablation (8)
+PHASE7_TESTS = ("disambiguation_sensitivity_tests.csv", "two_stage_tests.csv", "rq2_text_ablation_tests.csv",
+                "calibrated_two_stage_tests.csv")
+FAMILY_SIZE = 34   # docs/decisions.md: 20 + Phase 7 (4) + RQ2 text ablation (8) + calibrated two-stage (2, Phase 8)
 PF = "lightgbm_pair_focused"
 GNN_DIR = Path("data/interim/gnn")
 
@@ -290,8 +292,8 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
            "because group matching changes candidate counts). **Values** for learned models are the mean over 5 seeds with a "
            "**seed-mean bootstrap 95% CI** (each resample applied to every seed, seeds' metrics averaged); sd = seed-to-seed "
            "sd. Deterministic models: ordinary bootstrap CI. **Tests** (primary): one paired bootstrap per comparison on "
-           "the seed-averaged scores, 5,000 resamples, Holm-corrected across the 32-comparison family defined in "
-           "`docs/decisions.md` (\"Phase 7 design\", \"RQ2 design\"; each split corrected separately). The smallest attainable raw p is "
+           "the seed-averaged scores, 5,000 resamples, Holm-corrected across the 34-comparison family defined in "
+           "`docs/decisions.md` (\"Phase 7 design\", \"RQ2 design\", \"Phase 8 design\"; each split corrected separately). The smallest attainable raw p is "
            "0.0002.", "",
            f"Best GNN = {best_gnn} (highest validation macro hard_active ROC-AUC). node2vec = reported configuration "
            f"(p = {n2v[0]:g}, q = {n2v[1]:g}, {n2v[2]} operator, chosen on validation).", "", sc_note, ""]
@@ -320,7 +322,7 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
         if prow:
             out += ["### Phase 7 comparisons in the family (disambiguation sensitivity, two-stage, RQ2 text ablation)", "",
                     "Diff and raw p from `results/disambiguation_sensitivity_tests.csv` / `results/two_stage_tests.csv`; "
-                    "Holm across all 32 tests. Model values: `results/disambiguation_sensitivity.csv`, "
+                    "Holm across all 34 tests. Model values: `results/disambiguation_sensitivity.csv`, "
                     "`results/two_stage.csv`, summarised in `results/final_summary.md`.", "",
                     report.to_md(pd.DataFrame(prow)), ""]
         tbl = pd.DataFrame({"model": [label.get(m, m) for m in models]})

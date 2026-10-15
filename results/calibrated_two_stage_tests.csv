@@ -1,0 +1,9 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+two_stage_calibrated - lightgbm,val,hard,all,hard,-1,roc_auc_diff,-0.016362124160441915,-0.02216600495888518,-0.01061014688343482
+two_stage_calibrated - lightgbm,val,hard,all,hard,-1,roc_auc_diff_p_value,0.0002,,
+two_stage_calibrated - lightgbm,val,hard,macro,hard,-1,roc_auc_diff,-0.010580396525842306,-0.01626212805503983,-0.004696070570174617
+two_stage_calibrated - lightgbm,val,hard,macro,hard,-1,roc_auc_diff_p_value,0.0004,,
+two_stage_calibrated - lightgbm,test,hard,all,hard,-1,roc_auc_diff,-0.012624332680353345,-0.017915592562966924,-0.007459046524123842
+two_stage_calibrated - lightgbm,test,hard,all,hard,-1,roc_auc_diff_p_value,0.0002,,
+two_stage_calibrated - lightgbm,test,hard,macro,hard,-1,roc_auc_diff,-0.008374882679236584,-0.013950649171502075,-0.002758661900901165
+two_stage_calibrated - lightgbm,test,hard,macro,hard,-1,roc_auc_diff_p_value,0.0028,,

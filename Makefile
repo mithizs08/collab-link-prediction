@@ -2,7 +2,7 @@ PYTHON ?= python
 CONFIG ?= configs/default.yaml
 RUN = PYTHONPATH=src $(PYTHON) -m linkpred.cli --config $(CONFIG)
 
-.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis phase7 final
+.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis phase7 phase8 final
 
 help:
 	@echo "Targets: data splits baselines features train evaluate report test all"
@@ -45,7 +45,19 @@ phase7:      ## robustness (validation then test): grid edge, two-stage model, d
 	PYTHONPATH=src $(PYTHON) scripts/disambiguation_sensitivity.py --config $(CONFIG) --splits val test
 	PYTHONPATH=src $(PYTHON) scripts/rq2_text_ablation.py --config $(CONFIG) --splits val test
 
-final:       ## primary comparison (32-test Holm family incl. phase7 tests, 5,000 resamples) + results/final_summary.md
+phase8:      ## explainability + error analysis (validation first, then test) -> docs/explainability.md
+	PYTHONPATH=src $(PYTHON) scripts/phase8_shap.py --config $(CONFIG) --split val
+	PYTHONPATH=src $(PYTHON) scripts/phase8_shap.py --config $(CONFIG) --split test
+	PYTHONPATH=src $(PYTHON) scripts/rq2_text_ablation.py --config $(CONFIG) --block-order --splits val test
+	PYTHONPATH=src $(PYTHON) scripts/phase8_gnn_explain.py --config $(CONFIG)
+	PYTHONPATH=src $(PYTHON) scripts/extract_work_fields.py --config $(CONFIG)
+	PYTHONPATH=src $(PYTHON) scripts/phase8_errors.py --config $(CONFIG) --split val
+	PYTHONPATH=src $(PYTHON) scripts/phase8_errors.py --config $(CONFIG) --split test
+	PYTHONPATH=src $(PYTHON) scripts/phase8_calibration.py --config $(CONFIG) --splits val test
+	PYTHONPATH=src $(PYTHON) scripts/final_comparison.py --holm-only
+	PYTHONPATH=src $(PYTHON) scripts/phase8_report.py
+
+final:       ## primary comparison (34-test Holm family incl. phase7 tests, 5,000 resamples) + results/final_summary.md
 	PYTHONPATH=src $(PYTHON) scripts/final_comparison.py
 	PYTHONPATH=src $(PYTHON) scripts/final_summary.py
 

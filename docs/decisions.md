@@ -764,3 +764,52 @@ Each entry below resolves one audit finding; numbers are in the results files na
   All − structural+text adds +0.022 / +0.025. The `all` set reproduces the headline model (0.799 / 0.792).
 - Holm re-applied across 32 tests with `final_comparison.py --holm-only` (raw p-values unchanged, checked). With the
   larger family, Jaccard − Adamic-Adar on `rank_hard_active` moves from Holm p 0.027 to 0.054 (no longer significant).
+
+## 2026-10-15 — Phase 8 design: explainability and error analysis (written before the Phase 8 test runs)
+- **Scope:** completes RQ3. Every analysis runs on validation first; test is repeated only for final figures and
+  numbers, and every result states its split. Progress / resume file: `docs/phase8_progress.md`.
+- **SHAP (`scripts/phase8_shap.py`):** seed-0 models (same parameters, mix and data as the reported ones); exact
+  TreeSHAP on the booster truncated at `best_iteration`, in log-odds, additivity asserted. Besides mean |SHAP| (which
+  measures distance from the training-data average, so a feature that is CONSTANT in the evaluated pair set, such as
+  `distance` on distance-2 pairs, can still get a large value), we report `shap_auc`: the ROC-AUC of a feature's /
+  group's SHAP contributions used as a score within the pair set, i.e. whether the attribution discriminates there.
+- **Meaning-based groups:** pure structure (neighbourhood counts, Katz, degrees, distance, community, UTS/external
+  common neighbours, shared institutions), time-weighted structure (`rw_cn`, `rw_aa`, `years_since_shared`), author
+  activity / career (career age, recent works, years since last work), text similarity. `shared_institutions` is put
+  under pure structure (affiliation overlap is a tie, not activity or topic); noted as a judgement call.
+- **Exploratory block order:** pair-focused LightGBM on structural+temporal (no text), `rq2_text_ablation.py
+  --block-order`; raw p only, NOT in the Holm family, labelled exploratory.
+- **GNN explanations (`scripts/phase8_gnn_explain.py`):** the Colab runs kept no weights, so the best pair-focused GNN
+  (SAGE, structural) and the best general GNN (SAGE, text) are retrained on CPU from their saved seed-0 configs. The
+  pair-focused one is retrained on its ORIGINAL (shortcut) training set (`pair_focused_d2_only = false` for this run
+  only) so that the explained model is the reported one; fidelity to the Colab scores is reported. GNNExplainer
+  (PyG; Captum is not installed) on the 2-hop subgraph of each pair.
+- **Disciplines:** OpenAlex primary-topic field of each work, extracted from the raw snapshot by
+  `scripts/extract_work_fields.py` (no existing table changed); author field = modal field of the author's works
+  before the cutoff (ties → smallest field id); pair = same-field / cross-field / unknown. 26 fields, 99.6% of works
+  covered (`report/fields/coverage.csv`). This is coarse: one field per author.
+- **Error analysis hypotheses** (H1 false positives sit in dense, recent neighbourhoods; H2 missed positives are
+  topically distant; H3 performance varies with common-neighbour count) are exploratory: raw p, not in the family.
+- **Calibration (`scripts/phase8_calibration.py`):** reliability diagrams, Brier and ECE for the pair-focused and
+  general LightGBM. Calibrated two-stage: Platt scaling for both components fitted on TRAINING-split 5-fold
+  out-of-fold predictions only (never validation or test labels).
+- **Family extension:** calibrated two-stage − general LightGBM on pooled `hard` ROC-AUC and macro `hard` ROC-AUC
+  (2 tests) are added to the predefined family, **32 → 34 tests**, before the calibrated model is run on test;
+  `final_comparison.py --holm-only` re-applies Holm.
+
+## 2026-10-15 — Phase 8 results (numbers in `docs/explainability.md`, `results/final_summary.md` RQ3, and the files they cite)
+- **RQ3 answered** (`final_summary.md` RQ3 changed from preliminary to complete).
+- **Headline model is additive** (2-leaf trees; every SHAP interaction is 0). Meaning-based grouping: time-weighted
+  structure and text similarity carry most of its attribution; the "temporal" block label overstated activity.
+- **Block order (exploratory):** text adds a similar amount before or after the temporal block; RQ2 unchanged.
+- **Activity detector confirmed** on validation and test: single activity features score ~0.72–0.75 on pooled hard
+  and ≤ 0.50 on macro hard_active; the general model's activity attributions point the wrong way among
+  activity-matched pairs.
+- **GNN explanations:** GNNExplainer was uninformative (near-uniform masks on very large 2-hop subgraphs), so the
+  conclusions use integrated gradients (implemented directly; Captum not installed) and edge occlusion. The pair-focused
+  GNN's logit RISES when shared-neighbour paths are removed: the distance shortcut, seen directly.
+- **Cross-field definition** (modal OpenAlex field per author, 26 fields) is coarse; under it, cross-field pairs are
+  not a weak spot. A finer definition is left open.
+- **Right-censoring** is checkable on validation only (one later year); test has no later year.
+- **Calibration:** neither model's scores are probabilities; the calibrated two-stage still loses to the general
+  LightGBM (Holm-significant in the 34-test family). Two-stage stays an emergent, negative result.

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from linkpred.eval import report  # noqa: E402
 
 RES = Path("results")
-PF, TS, AA = "lightgbm_pair_focused", "two_stage", "adamic_adar"
+PF, TS, AA, GEN = "lightgbm_pair_focused", "two_stage", "adamic_adar", "lightgbm"
 TAG = "|no_flagged_ids"
 COLS = (("hard_active", "macro", "roc_auc", "macro hard_active ROC-AUC (headline)"),
         ("rank_hard_active", "macro", "query_auc", "macro rank_hard_active query AUC (headline)"),
@@ -156,7 +156,7 @@ def rq2_section(S: Src) -> list[str]:
             d, pv, ph = S.test(f"{rq2(a)} - {rq2(b)}", "test", *c)
             rows.append({"comparison": f"{a} − {b}", "metric": " ".join(c),
                          "difference [95% CI]": f"{d.value:+.3f} [{d.ci_low:+.3f}, {d.ci_high:+.3f}]",
-                         "raw p": f"{pv:.4f}", "Holm p (32-test family)": f"{ph:.4f}"})
+                         "raw p": f"{pv:.4f}", "Holm p (whole family)": f"{ph:.4f}"})
     out += ["**Paired tests (test)**", "", report.to_md(pd.DataFrame(rows)), ""]
     return out
 
@@ -249,22 +249,48 @@ def findings(S: Src, best_gnn: str, hybrid: str) -> list[str]:
         f"5. **Text is worth about as much as the temporal block, and neither replaces structure.** Adding the 9 temporal "
         f"features on top of structural+text adds a further {tst(f'{al_} - {stx}', HA)} (hard_active). Even with all 27 "
         f"features the model is at {v(al_, HA):.3f}, and structure alone already gets {v(st, HA):.3f}: what researchers publish "
-        "on helps, but most of what the model can separate among friend-of-friend pairs is structural. (The temporal "
-        "increment is measured on top of text; the order of adding blocks is fixed by the design, not tested both ways.)")
-    out += ["", f"### RQ3. {RQS[2]} — preliminary; completed in Phase 8", ""]
+        "on helps, but most of what the model can separate among friend-of-friend pairs is structural. Adding the blocks "
+        "in the other order (exploratory, Phase 8, `results/rq2_block_order_exploratory_tests.csv`) gives text a similar "
+        "increment after temporal, so the answer does not depend on the order.")
+    out += ["", f"### RQ3. {RQS[2]} — complete (Phase 8; details in `docs/explainability.md`)", ""]
+    si = pd.read_csv(RES / "shap_importance.csv")
+    ea = pd.read_csv(RES / "error_analysis.csv")
+    shs = lambda m, g, split="test", p="hard_active", metric="shap_share": float(
+        si[(si.model == m) & (si.split == split) & (si.protocol == p) & (si.subset == g) & (si.metric == metric)].value.iloc[0])
+    ev = lambda split, sub, metric, model=PF: float(
+        ea[(ea.split == split) & (ea.subset == sub) & (ea.metric == metric) & (ea.model == model)].value.iloc[0])
+    gap = max(abs(shs(PF, f"meaning={g}") - shs(PF, f"meaning={g}", split="val"))
+              for g in ("time_weighted_structure", "text_similarity", "pure_structure", "author_activity_career"))
     out.append(
-        f"6. **Drivers (preliminary; gain importance, `report/features/importance.csv`).** For the pair-focused LightGBM "
-        f"the gain splits {fam['temporal']:.0%} temporal, {fam['text']:.0%} text, {fam['structural']:.0%} structural; the top "
-        f"features are " + ", ".join(f"`{f}` ({x:.0%})" for f, x in top.items()) + ". Caveats: gain is not causal, "
-        "correlated features share credit, and `rw_aa` / `rw_cn` (classed temporal) are recency-weighted Adamic-Adar "
-        "and common-neighbour counts, i.e. structure weighted by how recent the shared ties are.")
+        f"6. **Drivers.** SHAP on the headline model (seed 0, test hard_active pairs; validation shares in "
+        f"`results/shap_importance.csv` differ by at most {gap:.3f}): time-weighted structure (recency-weighted Adamic-Adar / "
+        f"common neighbours) {shs(PF, 'meaning=time_weighted_structure'):.0%} of mean |SHAP|, text similarity "
+        f"{shs(PF, 'meaning=text_similarity'):.0%}, pure structure {shs(PF, 'meaning=pure_structure'):.0%}, author activity / "
+        f"career {shs(PF, 'meaning=author_activity_career'):.0%}. Filed by code block it looks \"temporal\" "
+        f"({shs(PF, 'block=temporal'):.0%}); by meaning, it is mostly recent shared structure and topic. The model has "
+        "2-leaf trees, so it is additive (no interactions). Gain importance (`report/features/importance.csv`) puts "
+        f"{fam['temporal']:.0%} on the temporal block, overstating `rw_aa`; the ablations (section 3 and the exploratory "
+        "block-order run, `results/rq2_block_order_exploratory*.csv`) show each block adds about 0.02 in either order.")
     out.append(
-        f"7. **Failures (preliminary).** Newcomer pairs are harder than established ones for the headline model "
-        f"(hard_active {v(PF, HA_N):.3f} vs {v(PF, HA_E):.3f}; rank_hard_active {v(PF, RK_N):.3f} vs {v(PF, RK_E):.3f}). "
-        f"The model is a specialist: on random pairs it scores {v(PF, ('random', 'all', 'roc_auc')):.3f} vs "
-        f"{v('lightgbm', ('random', 'all', 'roc_auc')):.3f} for the general LightGBM, so it should only rank friend-of-friend "
-        "candidates. Cross-discipline pairs have not been analysed yet; that, per-feature attributions and an error "
-        "analysis are Phase 8.")
+        f"7. **Activity and distance are what the models use when the evaluation lets them.** The general LightGBM's "
+        f"activity attributions discriminate on pooled hard (SHAP AUC "
+        f"{shs(GEN, 'meaning=author_activity_career', p='hard', metric='shap_auc'):.2f}) but point the wrong way among "
+        f"activity-matched pairs ({shs(GEN, 'meaning=author_activity_career', metric='shap_auc'):.2f}); the pair-focused GNN "
+        "treats a shared co-author as evidence AGAINST a link: removing the shared paths raises its logit "
+        "(`results/gnn_explanations.csv`).")
+    out.append(
+        f"8. **Failures.** (a) Newcomer pairs are harder for every model; none does better on newcomers once negatives are "
+        f"group-matched (headline: hard_active {v(PF, HA_N):.3f} newcomer vs {v(PF, HA_E):.3f} established). (b) Missed "
+        f"collaborations are topically distant and more often cross-field (H2, both groups). (c) Confident false "
+        f"positives among established pairs sit in dense, topically close neighbourhoods (H1); on validation "
+        f"{int(ev('val', 'group=established|set=top100_false_positives', 'n_collaborate_by_2025'))} of the top 100 co-author "
+        f"the next year vs {ev('val', 'group=established|set=all_negatives', 'share_collaborate_by_2025'):.1%} of all "
+        f"negatives (right-censoring; not checkable on test). (d) Cross-field pairs are NOT a weak spot: ROC-AUC "
+        f"{ev('test', 'field_pair=cross_field', 'roc_auc'):.3f} cross-field vs {ev('test', 'field_pair=same_field', 'roc_auc'):.3f} "
+        "same-field (test), under a coarse definition (modal OpenAlex field per author, 26 fields). (e) The headline "
+        f"model is a specialist (random pairs {v(PF, ('random', 'all', 'roc_auc')):.3f} vs "
+        f"{v('lightgbm', ('random', 'all', 'roc_auc')):.3f} for the general LightGBM), and no model's scores are "
+        "probabilities (`results/calibration.csv`).")
     return out + [""]
 
 
@@ -309,7 +335,9 @@ def emergent(S: Src, best_gnn: str) -> list[str]:
         f"{tst(f'{TS} - lightgbm', H_MAC)}), although its stage-1 activity model (`{a.model}`, validation activity ROC-AUC "
         f"{a.value:.3f}, test {act:.3f}) is good at its own task. The general model already learns activity jointly with "
         "the pair signal; the product of two separately trained probabilities loses that. Validation showed the same "
-        "before test was run (`results/two_stage.csv`).")
+        "before test was run (`results/two_stage.csv`). Calibrating both components on training-split out-of-fold "
+        "predictions (Phase 8) does not close the gap: "
+        f"{_tst(S, 'two_stage_calibrated - lightgbm', H_ALL)} on pooled hard (`results/calibrated_two_stage*.csv`).")
     out += ["", report.to_md(t), ""]
     return out
 
