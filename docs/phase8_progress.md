@@ -40,7 +40,7 @@ The task list is the Phase 8 request (steps 1–7); decisions go in `docs/decisi
   Makefile target `make phase8` runs the whole phase.
 
 ## In progress
-- `make test`, fresh-clone check, commit, push.
+- (none) — Phase 8 committed and pushed as f7e3dbc; make test 196 passed; fresh clone 146 passed, 50 skipped.
 
 ## Next
 - Nothing in Phase 8 after the push. Do not start Phase 9 without the project owner.
