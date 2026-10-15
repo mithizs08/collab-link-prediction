@@ -16,12 +16,14 @@ data/**
 *.feather
 *.h5
 *.emb
-models/
-checkpoints/
-lightning_logs/
-runs/
-wandb/
-mlruns/
+# Anchored to the repo root: an unanchored `models/` also matched src/linkpred/models/ and kept the
+# model code out of git from Phase 3 to Phase 6 (found and fixed 2026-10-15).
+/models/
+/checkpoints/
+/lightning_logs/
+/runs/
+/wandb/
+/mlruns/
 
 # Python
 __pycache__/
