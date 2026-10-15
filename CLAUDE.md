@@ -17,6 +17,7 @@ predict which author pairs co-author for the first time in the following window.
 - `data/processed/authors.parquet` aggregates all years: descriptive only, never a feature (rule 1)
 - Phase 7: `scripts/grid_edge.py`, `scripts/two_stage.py`, `scripts/disambiguation_sensitivity.py`, `scripts/rq2_text_ablation.py` (raw p-values; Holm in `final_comparison.py`), `scripts/final_summary.py` → `results/final_summary.md`
 - Phase 8: `scripts/phase8_shap.py`, `phase8_gnn_explain.py`, `extract_work_fields.py`, `phase8_errors.py`, `phase8_calibration.py`, `phase8_report.py` → `docs/explainability.md`; resume notes in `docs/phase8_progress.md`
+- Phase 9 write-up: `report/report.md` (numbers traced in `report/numbers.yaml`, checked by `scripts/check_numbers.py`), `scripts/final_figures.py` → `figures/final/`; resume notes in `docs/phase9_progress.md`
 - `configs/default.yaml` — all paths, split years, sampling ratios, seeds, hyperparameters
 - `data/{raw,interim,processed}` — git-ignored
 - `results/` — CSV outputs; `figures/`, `report/` — generated from `results/` only

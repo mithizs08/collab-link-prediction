@@ -813,3 +813,20 @@ Each entry below resolves one audit finding; numbers are in the results files na
 - **Right-censoring** is checkable on validation only (one later year); test has no later year.
 - **Calibration:** neither model's scores are probabilities; the calibrated two-stage still loses to the general
   LightGBM (Holm-significant in the 34-test family). Two-stage stays an emergent, negative result.
+
+## 2026-10-15 — Phase 9: write-up
+- **Cross-field check (step 0):** the Phase 8 same-field / cross-field ROC-AUCs restrict both classes by the pair's own
+  field relation (validation negatives 575 + 857 = 1,432, test 677 + 1,007 = 1,684, the full activity-matched sets),
+  so they are not positives-only. The apparent paradox (cross-field pairs score higher, yet missed collaborations are
+  more often cross-field) is explained in the report: cross-field counts against a pair in the pooled ranking, while
+  within the cross-field subset the model separates the classes well.
+- **Report and README** written from results files only. **Number provenance:** `report/numbers.yaml` maps every number
+  token in `report/report.md` and `README.md` to a git-tracked source row (or a declared constant such as the CI
+  level); `scripts/check_numbers.py` checks both directions and runs in `make test` (`tests/test_writeup.py`). A
+  first version that matched numbers against any value in any file was rejected: with ~300k source values almost
+  any three-decimal number matched. Limitation: the manifest proves each number equals its declared source; that the
+  declared source is the right one for the sentence is checked by reading the manifest.
+- **Figures:** `scripts/final_figures.py` → `figures/final/` (Okabe-Ito palette, A4 text width, test split unless a
+  panel says otherwise).
+- **Citations:** every citation in `report/report.md` is marked [VERIFY] for the author to check.
+- **PDF:** not built (no PDF engine installed); command in `report/README_build.md`.
