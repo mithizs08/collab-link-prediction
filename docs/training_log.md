@@ -32,5 +32,51 @@ results files named in each entry.
   analysis ran end to end. Dry-run metrics (2 epochs) are meaningless and were not imported into
   `results/`.
 
-## Phase 6 — Colab GPU run
-_To be filled in from `run.log`, `versions.json` and the training curves after the Colab run._
+## Phase 6 — Colab GPU run (2026-10-15)
+Source: `run.log` and per-run `curve.csv` / `meta.json` in the downloaded results folder (curves copied
+to `report/gnn/curves/`), `results/gnn_versions.json`.
+
+- **Environment and wall time.** Tesla T4, Python 3.13.15, torch 2.11.0+cu130, CUDA 13.0, cuDNN 9.2.7,
+  torch_geometric 2.6.1, numpy 2.1.3 (Colab's preinstalled torch, not the local 2.4.1). One session,
+  22:13:27 → 23:42:47, 5,361 s (≈ 89 min) for 48 grid + 40 final + 10 ablation + 1 determinism +
+  25 out-of-fold trainings — faster than the 2–2.5 h estimate.
+- **Grid size (corrected).** The config specifies 8 SAGE + 4 GAT = 12 configs per objective ×
+  node-feature setting, 48 in total, and 48 ran. The pre-run estimate and the decisions entry said
+  10 / 40 — a counting error in the prose, now corrected; the code always ran what the config said.
+- **Overfitting in general SAGE + text configs.** With text node features the general objective
+  overfits: at lr 0.005 training loss falls to 0.065–0.105 (h64/h128, 2–3 layers) while validation
+  `hard` ROC-AUC plateaus at 0.75–0.765; the final `gnn_general_sage_text` runs reach a training loss
+  of 0.051. Early stopping (patience 30) keeps the best validation epoch, so the reported models are
+  the pre-overfitting checkpoints, but the gap shows that the 384-d text input lets the model memorise
+  the ~9k training pairs. Not fixed further (dropout and weight decay were held fixed in the grid);
+  a stronger regulariser is an option if GNNs are revisited.
+- **Dot-decoder loss blow-ups (pair-focused ablation).** Epoch-0 loss was 36–71 for
+  `gnn_pair_focused_sage_structural_dot` (seeds 0–4: 50.8, 42.0, 36.4, 71.1, 55.3) and never fell
+  below 1.25 — worse than the 0.69 of a constant predictor. The raw inner product of unnormalised
+  128-d SAGE embeddings gives logits in the tens, so the sigmoid saturates and BCE explodes; gradient
+  clipping (norm 5) kept training finite but the model stayed poor (best epochs 6–30). The general dot
+  runs started lower (0.92–0.97) but stopped at their best epoch 2–3 in 3 of 5 seeds. Not fixed: the
+  dot decoder is an ablation and is reported as it behaved; the MLP decoder does not have the problem.
+- **GAT slower and weaker than SAGE.** Median 0.28 s per epoch vs 0.10 s for SAGE (≈ 2.8×); the 16 GAT
+  grid configs took 636 s vs 401 s for the 32 SAGE ones. Best validation score in the grid was lower
+  for GAT in all four objective × feature cells (e.g. pair-focused structural `hard_active` AP 0.604
+  vs 0.665; general text `hard` ROC-AUC 0.743 vs 0.765), so no final GAT model was the best GNN.
+- **Early-stopped out-of-fold folds.** In seed 4 of the out-of-fold stage, folds 1 and 2 stopped
+  around epoch 50–55 (validation AP peaked near epoch 25, dipped, and patience ran out) while the
+  other 23 folds trained ~200–250 epochs; their out-of-fold scores are visibly flatter (sd 0.43 vs
+  0.55–0.69). Every training pair still has an out-of-fold score (5 × 9,028, all finite). Kept as is
+  and noted as a caveat for hybrid seed 4. The out-of-fold models do not save curves; the epochs are
+  read from `run.log`.
+- **Misleading log line (fixed).** `run_gnn.py` printed `oof … fold k` *after* fold k trained, so each
+  fold's epoch lines appear above its label; the last label ("seed 4 fold 4", no epochs after it) looked
+  like an untrained fold, and under "determinism re-run" the second trace was actually out-of-fold
+  seed 0 fold 0. The message now says "fold k done (best epoch …, n epochs)".
+- **GPU determinism.** With `use_deterministic_algorithms(True, warn_only=True)`, cuDNN deterministic
+  and `CUBLAS_WORKSPACE_CONFIG=:4096:8`, re-running `gnn_pair_focused_sage_structural` seed 0 reproduced
+  the original final run exactly: all 231 epochs of training loss and validation AP identical, same best
+  epoch (200), max |Δscore| = 0 on val and test (`results/gnn_determinism.csv`). `run.log` contains no
+  "nondeterministic" warnings (warn_only would have printed one per op), including during GAT
+  training. Caveat: only this SAGE config was re-run; GAT determinism is inferred from the absence of
+  warnings, not measured.
+- **Cosmetic warning (fixed).** `float(loss)` on a tensor requiring grad triggered a UserWarning;
+  replaced with `loss.item()`.

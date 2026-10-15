@@ -45,6 +45,23 @@ def load_scores(d: Path, split: str) -> dict:
     return {k: z[k].astype(np.float64) for k in PairScores.SOURCES}
 
 
+def fit_hybrid(E, sd: Path, s: int, gnn_name: str, pf_params: dict, lmix) -> dict:
+    """Pair-focused LightGBM + out-of-fold GNN score for seed s; returns {split: {pair set: scores}}."""
+    cols = ALL_FEATURES + ["gnn_score"]
+    z = np.load(sd / "oof" / f"seed{s}" / "train_pairs.npz")
+    pairs, y = FM.training_pairs(E.splits["train"], lmix[0], lmix[1], active=True)
+    assert np.array_equal(pairs["u_idx"].values, z["u"]) and np.array_equal(pairs["v_idx"].values, z["v"])
+    assert np.isfinite(z["score"]).all(), "every training pair needs an out-of-fold score"
+    X = features_for(E.feat["train"], z["u"], z["v"], ALL_FEATURES).assign(gnn_score=z["score"])
+    fd = sd / "final" / gnn_name / f"seed{s}"
+    sc = {sp_: load_scores(fd, sp_) for sp_ in ("val", "test")}
+    Xs = {sp_: {k: E.Xsets(sp_, ALL_FEATURES)[k].assign(gnn_score=sc[sp_][k]) for k in PairScores.SOURCES}
+          for sp_ in ("val", "test")}
+    Xv, yv = FM.hard_eval_set(E.splits["val"], Xs["val"], "neg_hard_active")
+    m = FM.fit_lightgbm(X[cols], y, Xv[cols], yv, pf_params, s)
+    return {sp_: {k: FM.predict(m, Xs[sp_][k][cols]) for k in PairScores.SOURCES} for sp_ in ("val", "test")}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/default.yaml")
@@ -52,7 +69,14 @@ def main(argv=None):
     ap.add_argument("--results-dir", type=Path, default=Path("results"))
     ap.add_argument("--n-boot", type=int, default=None)
     ap.add_argument("--seeds", type=int, nargs="*", default=None)
+    ap.add_argument("--report-only", action="store_true", help="rebuild results/gnn.md from existing CSVs")
     args = ap.parse_args(argv)
+    if args.report_only:
+        cfg = load_config(args.config)
+        models = sorted(pd.read_csv(args.results_dir / "gnn.csv").model.unique())
+        oof = sorted((args.scores_dir / "oof").glob("seed*/meta.json"))
+        hyb = f"{PF}+{json.loads(oof[0].read_text())['model']}" if oof else None
+        return write_report(cfg, args.results_dir, models, hyb)
     cfg = load_config(args.config)
     if args.n_boot is not None:
         cfg["evaluation"]["n_bootstrap"] = args.n_boot
@@ -61,7 +85,8 @@ def main(argv=None):
     E = Experiment(cfg)
     k_full = cfg["negatives"]["ranking_candidates"]
     gnn = pd.read_csv(res / "gnn.csv")
-    seeds = args.seeds if args.seeds is not None else sorted(gnn.seed.unique())
+    # Plain ints: numpy int64 seeds from the CSV fail the results-schema check (found on the first real run).
+    seeds = args.seeds if args.seeds is not None else sorted(int(x) for x in gnn.seed.unique())
     models = sorted(gnn.model.unique())
     base = pd.read_csv(Path("results") / "baselines.csv")
     val_best = {}
@@ -107,25 +132,13 @@ def main(argv=None):
     if oof_dirs:
         gnn_name = json.loads(oof_dirs[0].read_text())["model"]
         hyb_name = f"{PF}+{gnn_name}"
-        cols = ALL_FEATURES + ["gnn_score"]
-        tr = E.splits["train"]
         for s in seeds:
             od = sd / "oof" / f"seed{s}"
             if not (od / "meta.json").exists():
                 continue
-            z = np.load(od / "train_pairs.npz")
-            pairs, y = FM.training_pairs(tr, lmix[0], lmix[1], active=True)
-            assert np.array_equal(pairs["u_idx"].values, z["u"]) and np.array_equal(pairs["v_idx"].values, z["v"])
-            assert np.isfinite(z["score"]).all(), "every training pair needs an out-of-fold score"
-            X = features_for(E.feat["train"], z["u"], z["v"], ALL_FEATURES).assign(gnn_score=z["score"])
-            fd = sd / "final" / gnn_name / f"seed{s}"
-            sc = {sp_: load_scores(fd, sp_) for sp_ in ("val", "test")}
-            Xs = {sp_: {k: E.Xsets(sp_, ALL_FEATURES)[k].assign(gnn_score=sc[sp_][k]) for k in PairScores.SOURCES}
-                  for sp_ in ("val", "test")}
-            Xv, yv = FM.hard_eval_set(E.splits["val"], Xs["val"], "neg_hard_active")
-            m = FM.fit_lightgbm(X[cols], y, Xv[cols], yv, pf_params, s)
+            hyb_scores = fit_hybrid(E, sd, s, gnn_name, pf_params, lmix)
             for sp_ in ("val", "test"):
-                scores = {k: FM.predict(m, Xs[sp_][k][cols]) for k in PairScores.SOURCES}
+                scores = hyb_scores[sp_]
                 rows, x = evaluate(None, E.splits[sp_], sp_, hyb_name, s, cfg["seed"], cfg["evaluation"]["n_bootstrap"],
                                    k_full=k_full, precomputed=scores)
                 hyb_rows += rows
@@ -192,6 +205,30 @@ def write_report(cfg, res: Path, models, hyb_name):
         dd = pd.read_csv(det)
         out += ["## Run-to-run variation with the same seed (GPU determinism check)", "",
                 report.to_md(dd[["model", "split", "protocol", "metric", "value"]]), ""]
+    st = res / "hard_active_stratified.csv"
+    if st.exists():
+        d = pd.read_csv(st)
+        d = d[(d.split == "test") & (d.metric == "roc_auc")]
+        agg = d.groupby(["model", "subset"]).agg(m=("value", "mean"), lo=("ci_low", "mean"), hi=("ci_high", "mean"))
+        t = agg.apply(lambda r: f"{r.m:.3f} [{r.lo:.3f}, {r.hi:.3f}]", axis=1).unstack().reset_index()
+        n = pd.read_csv(st)
+        n = n[(n.split == "test") & (n.model == "adamic_adar") & n.metric.isin(["n_positives", "n_negatives"])]
+        sizes = ", ".join(f"{r.subset} {r.metric[2:]} {int(r.value):,}" for r in n.itertuples())
+        pp = pd.read_csv(res / "hard_active_stratified_paired.csv")
+        pp = pp[pp.split == "test"]
+        dv, pv = pp[~pp.metric.str.endswith("p_value")], pp[pp.metric.str.endswith("p_value")]
+        mm = dv.merge(pv[["model", "subset", "seed", "value"]].rename(columns={"value": "p"}), on=["model", "subset", "seed"])
+        pt = mm.groupby(["model", "subset"]).apply(
+            lambda x: f"{x.value.mean():+.3f} (better {int(((x.p < .05) & (x.value > 0)).sum())}/{len(x)}, "
+                      f"worse {int(((x.p < .05) & (x.value < 0)).sum())}/{len(x)})", include_groups=False).unstack().reset_index()
+        out += ["## Diagnostic: newcomer composition of hard_active (test)", "",
+                "Activity matching makes newcomers (≤ 2 works before the cutoff) rare among negatives: for a newcomer, "
+                "\"published in the prediction year\" is close to \"formed a new co-authorship that year\". The "
+                "cold_start / established strata above restrict only the positives, so models that score newcomers high "
+                "look strong there. Here BOTH classes are restricted to the same stratum "
+                "(`scripts/stratified_hard_active.py`, `results/hard_active_stratified*.csv`). Sizes: " + sizes + ".", "",
+                "ROC-AUC, mean over seeds [mean bootstrap 95% CI]:", "", report.to_md(t), "",
+                "Paired difference vs Adamic-Adar within the stratum:", "", report.to_md(pt), ""]
     out += ["## Appendix: diagnostic_all_vs_hard", "", report.DIAGNOSTIC_WARNING, ""]
     (res / "gnn.md").write_text("\n".join(out))
 

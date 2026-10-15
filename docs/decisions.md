@@ -449,8 +449,9 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   activity-matched 2023 negatives (1:3), early stopping on validation `hard_active` AP, grid choice
   by validation `hard_active` ROC-AUC.
 - **Grid (validation only):** SAGE hidden {64, 128} × layers {2, 3} × lr {1e-3, 5e-3}; GAT hidden
-  {64, 128} × 2 layers × lr {1e-3, 5e-3}; dropout 0.3. 10 configs per objective × node-feature
-  setting, 40 in total, seed 0. The best per (objective, encoder, features) — 8 final configs — runs
+  {64, 128} × 2 layers × lr {1e-3, 5e-3}; dropout 0.3. 8 SAGE + 4 GAT = 12 configs per objective ×
+  node-feature setting, 48 in total, seed 0. (Corrected 2026-10-15: an earlier version of this entry
+  and the pre-run estimate said 10 / 40; the config always specified 48, which is what ran.) The best per (objective, encoder, features) — 8 final configs — runs
   with 5 seeds under all protocols. Dot-decoder ablation: the best encoder/features per objective,
   5 seeds.
 - **Determinism:** seeds everywhere, cuDNN deterministic, `use_deterministic_algorithms(True,
@@ -464,3 +465,36 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
 - **Compute split:** Colab trains and scores the GNNs (and evaluates them); paired tests against
   the refitted pair-focused LightGBM and the hybrid run locally (`scripts/gnn_analysis.py`) from the
   saved scores, so the Colab bundle needs no pair-feature tables.
+
+## 2026-10-15 — Phase 6 results and run checks (numbers in results/gnn*.csv, hard_active_stratified*.csv)
+- **Run checks before analysis.** (1) The Colab run executed the config as written: 48 grid configs
+  (8 SAGE + 4 GAT per objective × features), 40 final, 10 ablation, 1 determinism, 5 out-of-fold
+  units; no dry-run outputs were involved (`dry_run: false`, every grid run ≥ 31 epochs, 5 seeds per
+  final model). (2) "oof … seed 4 fold 4" with no epoch lines after it was a logging artefact (the
+  label printed after each fold trained); all 5 × 9,028 training pairs have finite out-of-fold scores.
+  (3) The second trace under "determinism re-run" was out-of-fold seed 0 fold 0; the re-run itself
+  matched the original final run exactly (all 231 epochs, scores), so the reported 0.0 is correct for
+  that config. Details in `docs/training_log.md`.
+- **GNNs lost.** The best GNN on validation `hard_active` (pair-focused GraphSAGE, structural
+  features) scores 0.687 on test, not significantly different from Adamic-Adar on the full set and
+  significantly worse inside both newcomer-matched strata; it is far below the pair-focused LightGBM
+  (−0.126, 5/5 seeds). General-objective GNNs score 0.48–0.59 on `hard_active` while reaching
+  0.75–0.77 on `hard`: they learned activity, not pairs.
+- **Hybrid:** adding the out-of-fold GNN score to the pair-focused LightGBM gives a small, consistent
+  gain on `hard_active` (+0.012, 5/5 seeds; inside the established stratum the seed means differ by +0.009, not paired-tested) and an unstable one
+  on `rank_hard_active` (+0.010, 2/5 seeds).
+
+## 2026-10-15 — Finding: newcomer composition of `hard_active` (OPEN, for the project owner)
+- **Observation:** activity matching makes newcomers (≤ 2 works before the cutoff) rare among
+  negatives — test: 17% of `hard_active` negatives vs 35% of distance-2 positives (validation 16% vs
+  31%); under `hard` it is the reverse (48% of negatives), because many newcomers stop publishing.
+  For a newcomer, "published in the prediction year" is close to "formed a new co-authorship that
+  year", so newcomer status becomes a positive signal under `hard_active` that a deployed model could
+  not rely on in the same way.
+- **Effect:** the existing `cold_start` / `established` strata restrict only the positives, so they
+  reward models that score newcomers high (best GNN: 0.858 cold-start vs 0.596 established). With
+  both classes restricted to the same stratum (`scripts/stratified_hard_active.py`), the pair-focused
+  LightGBM's advantage over Adamic-Adar remains (+0.088 established, +0.057 newcomer, 5/5 seeds), while
+  the best GNN's 0.687 falls to 0.660 / 0.621, significantly below Adamic-Adar.
+- **Open question:** whether to (a) report `hard_active` with newcomer-matched strata as standard, or
+  (b) build activity-matched negatives that also match newcomer composition. Not changed here.

@@ -262,7 +262,8 @@ class Runner:
                 res = self.fit(c, s, exclude=excl)
                 g = self.graphs[(c["features"], "train")].to(self.device)
                 oof[fold == k] = res.model.score(g, u[fold == k], v[fold == k])
-                log(f"oof {name} seed {s} fold {k}")
+                # Logged AFTER the fold trains, so each fold's epoch lines appear ABOVE its label.
+                log(f"oof {name} seed {s} fold {k} done (best epoch {res.best_epoch}, {len(res.curve)} epochs)")
             d.mkdir(parents=True, exist_ok=True)
             np.savez_compressed(d / "train_pairs.npz", u=u, v=v, score=oof.astype(np.float32))
             (d / "meta.json").write_text(json.dumps({"model": name, "seed": s, "folds": K, **c}, indent=2))

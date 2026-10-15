@@ -35,8 +35,10 @@ gnn-dry:     ## local CPU dry run of the whole GNN pipeline (2 epochs, 1 seed) i
 gnn-import:  ## make gnn-import SRC=~/Downloads/gnn_results
 	PYTHONPATH=src $(PYTHON) scripts/import_colab_results.py $(SRC)
 
-gnn-analysis: ## paired tests, hybrid LightGBM, results/gnn.md (after gnn-import)
+gnn-analysis: ## paired tests, hybrid LightGBM, newcomer-stratified diagnostic, results/gnn.md (after gnn-import)
 	PYTHONPATH=src $(PYTHON) scripts/gnn_analysis.py
+	PYTHONPATH=src $(PYTHON) scripts/stratified_hard_active.py
+	PYTHONPATH=src $(PYTHON) scripts/gnn_analysis.py --report-only
 
 evaluate:    ## score models on val/test, write results/*.csv
 	$(RUN) evaluate

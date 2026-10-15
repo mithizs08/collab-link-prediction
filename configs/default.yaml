@@ -144,6 +144,6 @@ models:
     weight_decay: 0.0005
     heads: 4                               # GAT
     oof_folds: 5                           # out-of-fold GNN scores for the hybrid's training pairs
-    grid:                                  # chosen on validation only; 10 configs per objective x features
+    grid:                                  # chosen on validation only; 8 SAGE + 4 GAT = 12 per objective x features (48)
       sage: {hidden: [64, 128], layers: [2, 3], dropout: [0.3], lr: [0.001, 0.005]}
       gat: {hidden: [64, 128], layers: [2], dropout: [0.3], lr: [0.001, 0.005]}

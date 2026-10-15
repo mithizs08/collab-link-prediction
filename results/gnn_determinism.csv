@@ -1,0 +1,7 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+determinism:gnn_pair_focused_sage_structural,val,hard_active,all,hard_active,0,max_abs_score_diff,0.0,,
+determinism:gnn_pair_focused_sage_structural,val,hard_active,all,hard_active,0,roc_auc_abs_diff,0.0,,
+determinism:gnn_pair_focused_sage_structural,val,hard,all,hard,0,roc_auc_abs_diff,0.0,,
+determinism:gnn_pair_focused_sage_structural,test,hard_active,all,hard_active,0,max_abs_score_diff,0.0,,
+determinism:gnn_pair_focused_sage_structural,test,hard_active,all,hard_active,0,roc_auc_abs_diff,0.0,,
+determinism:gnn_pair_focused_sage_structural,test,hard,all,hard,0,roc_auc_abs_diff,0.0,,
