@@ -19,7 +19,9 @@ docs/decisions.md, "Phase 7 design"):
   hybrid minus lightgbm_pair_focused, and lightgbm_pair_focused minus lightgbm, on both (4 tests)
   Phase 7: disambiguation sensitivity, pair-focused LightGBM minus Adamic-Adar on the reduced data, on both
   headline metrics (2; raw p from results/disambiguation_sensitivity_tests.csv); two-stage minus general
-  LightGBM on pooled and macro hard ROC-AUC (2; raw p from results/two_stage_tests.csv)  (24 tests)
+  LightGBM on pooled and macro hard ROC-AUC (2; raw p from results/two_stage_tests.csv); RQ2 text ablation of the
+  pair-focused LightGBM (8; results/rq2_text_ablation_tests.csv)                       (32 tests)
+  `--holm-only` re-applies Holm across the family from the saved raw p-values (no bootstrap re-run).
 Each test: one paired bootstrap (evaluation.n_bootstrap_final = 5,000 resamples) on the seed-AVERAGED scores.
 
 Writes results/final_comparison.csv, results/final_comparison_tests.csv, results/final_comparison.md.
@@ -56,7 +58,8 @@ EXTRA = (("hard_active", "established_matched", "roc_auc"), ("hard_active", "new
          ("hard", "macro", "roc_auc"), ("rank_hard", "macro", "query_auc"),
          ("hard_active", "all", "roc_auc"), ("rank_hard_active", "full_candidates", "mrr"),
          ("hard", "all", "roc_auc"), ("random", "all", "roc_auc"))
-PHASE7_TESTS = ("disambiguation_sensitivity_tests.csv", "two_stage_tests.csv")
+PHASE7_TESTS = ("disambiguation_sensitivity_tests.csv", "two_stage_tests.csv", "rq2_text_ablation_tests.csv")
+FAMILY_SIZE = 32   # docs/decisions.md: 20 + Phase 7 (4) + RQ2 text ablation (8)
 PF = "lightgbm_pair_focused"
 GNN_DIR = Path("data/interim/gnn")
 
@@ -97,8 +100,47 @@ def node2vec_choice(res: Path, ncfg: dict):
     return best[1:]
 
 
+def holm_only(res: Path, cfg: dict):
+    """Re-apply Holm across the current family from saved raw p-values (no bootstrap is re-run): this script's own
+    20 comparisons keep their raw p from final_comparison_tests.csv; the external ones come from PHASE7_TESTS."""
+    t = pd.read_csv(res / "final_comparison_tests.csv")
+    ext_names = set()
+    for f in PHASE7_TESTS:
+        ext_names |= set(pd.read_csv(res / f).model)
+    own = t[~t.model.isin(ext_names) & ~t.metric.str.endswith("_p_holm")]
+    tests = []
+    for split in ("val", "test"):
+        o = own[own.split == split]
+        pv = {("own", r.model, r.protocol, r.subset, r.metric[:-len("_diff_p_value")]): r.value
+              for r in o[o.metric.str.endswith("_p_value")].itertuples()}
+        ext = phase7_tests(res, split)
+        pv.update({("ext",) + k: v["p_value"] for k, v in ext.items()})
+        assert len(pv) == FAMILY_SIZE, f"family has {len(pv)} tests, decisions.md defines {FAMILY_SIZE}"
+        adj = bs.holm(pv)
+        for r in o.to_dict("records"):
+            tests.append(r)
+            if r["metric"].endswith("_p_value"):
+                k = ("own", r["model"], r["protocol"], r["subset"], r["metric"][:-len("_diff_p_value")])
+                tests.append({**r, "metric": r["metric"].replace("_p_value", "_p_holm"), "value": adj[k]})
+        for (name, p, sub, metric), r in ext.items():
+            base = {"model": name, "split": split, "protocol": p, "subset": sub, "negative_type": r["negative_type"], "seed": -1}
+            tests += [{**base, "metric": f"{metric}_diff", "value": r["diff"], "ci_low": r["ci_low"], "ci_high": r["ci_high"]},
+                      {**base, "metric": f"{metric}_diff_p_value", "value": r["p_value"]},
+                      {**base, "metric": f"{metric}_diff_p_holm", "value": adj[("ext", name, p, sub, metric)]}]
+    clean = lambda r: {k: (None if isinstance(v, float) and np.isnan(v) else v) for k, v in r.items()} | {"seed": int(r["seed"])}
+    write_results([clean(r) for r in tests], res / "final_comparison_tests.csv", append=False)
+    d = pd.read_csv(res / "final_comparison.csv")
+    models = list(dict.fromkeys(d.model))
+    best_gnn = next(m for m in models if m.startswith("gnn_"))
+    hybrid = next(m for m in models if m.startswith(PF + "+"))
+    P, Q, OP, _ = node2vec_choice(res, cfg["models"]["node2vec"])
+    write_report(res, models, best_gnn, hybrid, (P, Q, OP))
+
+
 def main():
     cfg = load_config()
+    if "--holm-only" in sys.argv:
+        return holm_only(Path(cfg["paths"]["results"]), cfg)
     set_seed(cfg["seed"])
     res = Path(cfg["paths"]["results"])
     E = Experiment(cfg)
@@ -198,7 +240,7 @@ def main():
         pv = {("own",) + k: v["p_value"] for k, v in res_tests.items()}
         pv.update({("ext",) + k: v["p_value"] for k, v in ext.items()})
         adj = bs.holm(pv)
-        assert len(pv) == 24, f"family has {len(pv)} tests, decisions.md defines 24"
+        assert len(pv) == FAMILY_SIZE, f"family has {len(pv)} tests, decisions.md defines {FAMILY_SIZE}"
         for (a, b, p, metric), r in res_tests.items():
             base = {"model": f"{a} - {b}", "split": split, "protocol": p, "subset": "macro",
                     "negative_type": "hard_active", "seed": -1}
@@ -248,8 +290,8 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
            "because group matching changes candidate counts). **Values** for learned models are the mean over 5 seeds with a "
            "**seed-mean bootstrap 95% CI** (each resample applied to every seed, seeds' metrics averaged); sd = seed-to-seed "
            "sd. Deterministic models: ordinary bootstrap CI. **Tests** (primary): one paired bootstrap per comparison on "
-           "the seed-averaged scores, 5,000 resamples, Holm-corrected across the 24-comparison family defined in "
-           "`docs/decisions.md` (\"Phase 7 design\"; each split corrected separately). The smallest attainable raw p is "
+           "the seed-averaged scores, 5,000 resamples, Holm-corrected across the 32-comparison family defined in "
+           "`docs/decisions.md` (\"Phase 7 design\", \"RQ2 design\"; each split corrected separately). The smallest attainable raw p is "
            "0.0002.", "",
            f"Best GNN = {best_gnn} (highest validation macro hard_active ROC-AUC). node2vec = reported configuration "
            f"(p = {n2v[0]:g}, q = {n2v[1]:g}, {n2v[2]} operator, chosen on validation).", "", sc_note, ""]
@@ -267,7 +309,7 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
         for p, metric in (("hard_active", "roc_auc"), ("rank_hard_active", "query_auc")):
             tbl[f"{p} macro {metric}"] = [test_cell(hybrid, split, p, metric, PF), test_cell(PF, split, p, metric, "lightgbm")]
         out += ["### Other headline comparisons", "", report.to_md(tbl), ""]
-        tp = t[(t.split == split) & t.model.str.contains("no_flagged_ids|two_stage", regex=True)]
+        tp = t[(t.split == split) & t.model.str.contains(r"no_flagged_ids|two_stage|\[structural", regex=True)]
         prow = []
         for (name, p, sub), d in tp.groupby(["model", "protocol", "subset"], sort=False):
             for m in d.metric[d.metric.str.endswith("_diff")]:
@@ -276,9 +318,9 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
                              "difference [95% CI]": f"{g('').value:+.3f} [{g('').ci_low:+.3f}, {g('').ci_high:+.3f}]",
                              "p": f"{g('_p_value').value:.4f}", "Holm p": f"{g('_p_holm').value:.4f}"})
         if prow:
-            out += ["### Phase 7 comparisons in the family (disambiguation sensitivity, two-stage)", "",
+            out += ["### Phase 7 comparisons in the family (disambiguation sensitivity, two-stage, RQ2 text ablation)", "",
                     "Diff and raw p from `results/disambiguation_sensitivity_tests.csv` / `results/two_stage_tests.csv`; "
-                    "Holm across all 24 tests. Model values: `results/disambiguation_sensitivity.csv`, "
+                    "Holm across all 32 tests. Model values: `results/disambiguation_sensitivity.csv`, "
                     "`results/two_stage.csv`, summarised in `results/final_summary.md`.", "",
                     report.to_md(pd.DataFrame(prow)), ""]
         tbl = pd.DataFrame({"model": [label.get(m, m) for m in models]})

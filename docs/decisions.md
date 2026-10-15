@@ -728,4 +728,39 @@ Each entry below resolves one audit finding; numbers are in the results files na
   resamples and the 20-test family (Holm p 0.052). The change comes from the finer p resolution (0.0002 vs
   0.001) and the retrained base model; the effect is under 0.01 AUC and the hybrid is built on the
   shortcut-trained GNN, so it stays secondary.
-- **Research questions** were never written down; `final_summary.md` states them explicitly (RQ1–RQ3) and says so.
+- ~~Research questions were never written down; `final_summary.md` states them explicitly (RQ1–RQ3).~~ **Superseded 2026-10-15:** wrong; the research questions were pre-specified in the project owner's original plan (not in the repo). See "Research questions (pre-specified)" below.
+
+## 2026-10-15 — Research questions (pre-specified in the original plan)
+- **Decision:** the project's research questions are the three fixed in the project owner's original plan document
+  before any data was seen (they were not in the repository until now). They replace the RQ1–RQ3 that Phase 7 wrote
+  into `results/final_summary.md`, which were reconstructed without that document:
+  1. How much do learned models (GNNs, embeddings, feature models) improve over simple graph heuristics for
+     predicting new collaborations?
+  2. Do topical signals (what researchers publish on) add predictive value beyond network structure?
+  3. Which features drive predictions, and where do models fail (e.g. newcomers, cross-discipline pairs)?
+- **Consequences:** `final_summary.md` maps its findings to these questions (node2vec and GNNs under RQ1); RQ3 gets a
+  preliminary answer from existing results and is completed in Phase 8. Findings that answer none of them (the
+  activity confound, newcomer imbalance, distance shortcut, two-stage result) move to a separate section,
+  "Emergent findings (not pre-specified)".
+
+## 2026-10-15 — RQ2 design: text ablation of the pair-focused LightGBM (written before the RQ2 runs)
+- **Why:** the existing ablation (`results/ablation.csv`) covers the general LightGBM only; RQ2 needs a direct answer
+  for the headline model.
+- **Design:** pair-focused LightGBM (activity-matched 2023 negatives, distance-2 positives, main selected parameters
+  and mix, NOT re-tuned per feature set: the comparison isolates the inputs) on three feature sets: structural (14),
+  structural+text (18), all (27 = + temporal). 5 seeds each. `scripts/rq2_text_ablation.py`; validation first, then
+  test. Reported on macro `hard_active` ROC-AUC and macro `rank_hard_active` query AUC, and within the established
+  and newcomer groups.
+- **Tests (paired bootstrap on seed-averaged scores, 5,000 resamples), added to the predefined family:**
+  structural+text − structural on macro `hard_active`, macro `rank_hard_active`, and each group (established,
+  newcomer) of both (6); all − structural+text on the two macro metrics (2). **The family grows from 24 to 32 tests**
+  (Holm per split). The 24 existing raw p-values are unchanged; `final_comparison.py --holm-only` re-applies Holm
+  across the 32 without re-running its bootstrap.
+
+## 2026-10-15 — RQ2 results (numbers in `results/rq2_text_ablation*.csv`, `results/final_summary.md` section 3)
+- Validation first: structural+text − structural +0.018 macro `hard_active`, +0.019 macro `rank_hard_active`; the
+  newcomer-group `hard_active` gain was not significant (raw p 0.21). Design unchanged; then test: +0.023 / +0.027,
+  Holm-significant in the 32-test family; newcomer-group `hard_active` +0.019, Holm p 0.054 (not significant).
+  All − structural+text adds +0.022 / +0.025. The `all` set reproduces the headline model (0.799 / 0.792).
+- Holm re-applied across 32 tests with `final_comparison.py --holm-only` (raw p-values unchanged, checked). With the
+  larger family, Jaccard − Adamic-Adar on `rank_hard_active` moves from Holm p 0.027 to 0.054 (no longer significant).

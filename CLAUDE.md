@@ -15,7 +15,7 @@ predict which author pairs co-author for the first time in the following window.
 - `src/linkpred/models/node2vec.py` (embeddings, Procrustes alignment, operators); `scripts/run_node2vec.py` → `results/node2vec.*`; embeddings cached in `data/interim/node2vec`
 - Phase 6 GNNs: `src/linkpred/features/node_features.py`, `src/linkpred/models/gnn.py`; `scripts/run_gnn.py` (resumable; runs on Colab via `notebooks/06_gnn_colab.ipynb` and `scripts/make_colab_bundle.py`), `scripts/import_colab_results.py`, `scripts/gnn_analysis.py`; training problems go in `docs/training_log.md`
 - `data/processed/authors.parquet` aggregates all years: descriptive only, never a feature (rule 1)
-- Phase 7: `scripts/grid_edge.py`, `scripts/two_stage.py`, `scripts/disambiguation_sensitivity.py` (raw p-values; Holm in `final_comparison.py`), `scripts/final_summary.py` → `results/final_summary.md`
+- Phase 7: `scripts/grid_edge.py`, `scripts/two_stage.py`, `scripts/disambiguation_sensitivity.py`, `scripts/rq2_text_ablation.py` (raw p-values; Holm in `final_comparison.py`), `scripts/final_summary.py` → `results/final_summary.md`
 - `configs/default.yaml` — all paths, split years, sampling ratios, seeds, hyperparameters
 - `data/{raw,interim,processed}` — git-ignored
 - `results/` — CSV outputs; `figures/`, `report/` — generated from `results/` only
