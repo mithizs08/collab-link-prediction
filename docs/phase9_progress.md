@@ -22,7 +22,7 @@ Resume file for a fresh session. Python: `/opt/anaconda3/envs/linkpred/bin/pytho
 - Step 4: `report/numbers.yaml` + `scripts/check_numbers.py` (in `make test` via `tests/test_writeup.py`); passes.
 
 ## In progress
-- `make test`; fresh-clone check; commit; push.
+- (none) Committed and pushed as aa44259; make test 197 passed; fresh clone 147 passed, 50 skipped; number check passes in the clone.
 
 ## Next
 - Author checks every [VERIFY] reference; builds the PDF locally.
