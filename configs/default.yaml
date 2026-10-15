@@ -19,7 +19,6 @@ data:
   # Raw input: existing OpenAlex snapshot from the earlier UTS project (read-only).
   # Set snapshot_path: null to build from data/raw/openalex_pages instead
   # (populated by `python -m linkpred.data.fetch_openalex`).
-  source: openalex
   snapshot_path: /Users/zareenshyma/Documents/uts-research-intelligence/data/raw/uts_works_2015_2025.json
   institution_id: I114017466 # University of Technology Sydney (ROR 03f0f6041), verified 2026-10-14
   start_year: 2015
@@ -66,9 +65,8 @@ negatives:
   train_pool_ratio: 3
 
 evaluation:
-  # Protocols (docs/decisions.md, 2026-10-14): hard is the headline; diagnostic_all_vs_hard
-  # is appendix-only. Bootstrap resamples are seeded from `seed`.
-  protocols: [hard, rank_random, rank_hard, random, diagnostic_all_vs_hard, hard_active, rank_hard_active]
+  # Protocols are defined in code (linkpred.eval.protocols.PROTOCOL_ORDER; docs/decisions.md);
+  # diagnostic_all_vs_hard is appendix-only. Bootstrap resamples are seeded from `seed`.
   # Headline (2026-10-15, audit M2): macro within-group score for the pair-level protocols
   # (report.HEADLINE); earlier selection rules keep the pooled metric they were defined on (report.POOLED).
   n_bootstrap: 1000
@@ -135,6 +133,7 @@ models:
     node_features: [structural, text]      # structural (4) | structural + 384-d author text vector
     general_mix: [0.0, 3]                  # Phase 4 rule's choice for LightGBM: random negatives, 1:3
     pair_focused_ratio: 3                  # activity-matched 2023 negatives, 1:3 (as pair-focused LightGBM)
+    pair_focused_d2_only: true             # rule 7 (audit N2). The saved Colab models were trained with false.
     max_epochs: 300
     patience: 30                           # epochs without validation improvement
     weight_decay: 0.0005

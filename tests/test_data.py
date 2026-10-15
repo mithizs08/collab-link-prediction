@@ -190,3 +190,13 @@ def test_deduplicate_requires_shared_author():
     auth = pd.DataFrame({"work_id": ["W1", "W1", "W2", "W2"], "author_id": ["A", "B", "C", "D"]})
     kept, stats = deduplicate(works, auth)
     assert len(kept) == 2 and stats["duplicate_title_year"] == 0
+
+
+def test_missing_env_snapshot_is_an_error(tmp_path, monkeypatch):
+    """Audit N6: an explicitly set LINKPRED_SNAPSHOT_PATH that does not exist must not fall back silently."""
+    monkeypatch.setenv("LINKPRED_SNAPSHOT_PATH", str(tmp_path / "missing.json"))
+    cfg = load_config()
+    cfg["paths"] = {**cfg["paths"], "raw": str(tmp_path / "raw"), "processed": str(tmp_path / "p")}
+    (tmp_path / "raw" / "openalex_pages").mkdir(parents=True)        # a stale fallback that must NOT be used
+    with pytest.raises(FileNotFoundError, match="LINKPRED_SNAPSHOT_PATH"):
+        build(cfg)

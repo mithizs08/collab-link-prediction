@@ -35,6 +35,34 @@ REFERENCE_MODELS = {"prefer_newer"}    # reference rows, never eligible as "best
 POOLED_NOTE = "pooled — affected by newcomer imbalance"
 
 
+def shortcut_check(res: Path, model: str) -> tuple[float, float]:
+    """Mean and sd over seeds of the distance-shortcut check (audit M1 / N3) for `model`, from
+    results/gnn_shortcut_check.csv: test random-protocol ROC-AUC of far (distance >= 3) negatives against
+    distance-2 positives. Above 0.5 = the model ranks far non-collaborators above near collaborators."""
+    d = pd.read_csv(Path(res) / "gnn_shortcut_check.csv")
+    v = d[(d.model == model) & (d.subset == "far_negatives_vs_distance2_positives") & (d.metric == "roc_auc")].value
+    if not len(v):
+        raise KeyError(f"no shortcut check for {model}")
+    return float(v.mean()), float(v.std(ddof=1))
+
+
+def shortcut_labels(res: Path, gnn: str, hybrid: str | None = None) -> tuple[dict, str]:
+    """Row labels and a note for the saved Colab GNNs, which were trained with the distance shortcut (N3)."""
+    m, sd = shortcut_check(res, gnn)
+    lab = {gnn: f"{gnn} (best GNN; trained with the distance shortcut, shortcut check {m:.3f})"}
+    if hybrid:
+        lab[hybrid] = f"{hybrid} (hybrid; built on the shortcut-trained GNN)"
+    note = (f"**Caveat (audit M1 / N3).** The saved GNNs were trained on Colab before the distance-2 fix: their "
+            f"pair-focused training positives include pairs at distance ≥ 3 while every negative is at distance 2. "
+            f"`{gnn}` learned that shortcut (shortcut check {m:.3f} ± {sd:.3f}: test ROC-AUC of far random negatives "
+            f"against distance-2 positives, `results/gnn_shortcut_check.csv`; above 0.5 = it ranks far non-collaborators above near "
+            f"collaborators; the retrained pair-focused LightGBM scores {shortcut_check(res, 'lightgbm_pair_focused')[0]:.3f}). "
+            + (f"The hybrid adds this GNN's out-of-fold score to the retrained pair-focused LightGBM, so it is built on a "
+               f"shortcut-trained model and is a secondary result. " if hybrid else "")
+            + "The GNNs were not retrained (no Colab rerun); `scripts/run_gnn.py` now trains distance-2 positives only.")
+    return lab, note
+
+
 def val_best(base: pd.DataFrame, protocols, headline: dict | None = None) -> dict:
     """Validation-best heuristic per protocol by its headline metric (reference models excluded)."""
     headline = headline or HEADLINE

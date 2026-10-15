@@ -465,3 +465,8 @@ independently. One finding (M1) is only partly closed: the GNN training code sti
 training set, and the headline table does not label the shortcut-trained GNN. The remediation also
 introduced stale citations in older decision entries (N1) and an untraceable diagnostic (N4). No new
 leakage and no change to any headline number was found.
+
+### Resolution of the verification findings (2026-10-15)
+N1–N7 and N9 fixed as described in `docs/decisions.md` ("Verification findings N1–N9"). N8 is addressed in
+Phase 7 (grid extension, validation only; outcome logged in `docs/decisions.md`). The GNNs were not
+retrained, so the N3 caveat remains on every GNN and hybrid row.

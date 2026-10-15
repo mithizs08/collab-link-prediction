@@ -1,0 +1,7 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+node2vec_alignment|op=hadamard|transferred,val,random,all,random,0,roc_auc,0.9045197323570257,,
+node2vec_alignment|op=hadamard|within_val,val,random,all,random,0,roc_auc,0.9010831965660901,,
+node2vec_alignment|op=l1|transferred,val,random,all,random,0,roc_auc,0.665078247695998,,
+node2vec_alignment|op=l1|within_val,val,random,all,random,0,roc_auc,0.6756874132054034,,
+node2vec_alignment|op=l2|transferred,val,random,all,random,0,roc_auc,0.6583071834364348,,
+node2vec_alignment|op=l2|within_val,val,random,all,random,0,roc_auc,0.663644489332155,,

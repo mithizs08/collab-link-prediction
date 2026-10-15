@@ -76,7 +76,11 @@ class Runner:
             frac, ratio = self.g["general_mix"]
             pairs, y = training_pairs(tr, frac, ratio)
         else:
-            pairs, y = training_pairs(tr, 0.0, self.g["pair_focused_ratio"], active=True)
+            # Distance-2 positives only (rule 7, audit M1 / N2): activity-matched negatives are all at distance 2,
+            # so positives at distance >= 3 would let distance alone separate the classes. The saved Colab
+            # models predate this and were trained with pair_focused_d2_only = false (results/gnn_shortcut_check.csv).
+            pairs, y = training_pairs(tr, 0.0, self.g["pair_focused_ratio"], active=True,
+                                      d2_only=self.g["pair_focused_d2_only"])
         u, v = pairs["u_idx"].values, pairs["v_idx"].values
         if exclude:
             keep = np.array([(min(a, b), max(a, b)) not in exclude for a, b in zip(u, v)])
@@ -248,7 +252,8 @@ class Runner:
         hybrid never sees in-sample GNN scores. Val/test GNN scores come from the final run."""
         name, c = self.best_overall()
         tr = self.splits["train"]
-        pairs, _ = training_pairs(tr, 0.0, self.cfg["models"]["gnn"]["pair_focused_ratio"], active=True)
+        pairs, _ = training_pairs(tr, 0.0, self.cfg["models"]["gnn"]["pair_focused_ratio"], active=True,
+                                  d2_only=self.g["pair_focused_d2_only"])   # same set as the hybrid's LightGBM
         u, v = pairs["u_idx"].values, pairs["v_idx"].values
         K = self.g["oof_folds"]
         for s in self.seeds:

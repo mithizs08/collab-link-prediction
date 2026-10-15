@@ -5,6 +5,7 @@
 Validates every row of gnn_grid.csv, gnn.csv and gnn_determinism.csv against the results schema
 (linkpred.results.validate_row), checks that every completed final run has its score files, and then:
   results/gnn_grid.csv, results/gnn.csv, results/gnn_determinism.csv   (replaced, validated)
+  results/gnn_colab.csv                                                 (copy of gnn.csv, read by gnn_analysis.py)
   results/gnn_versions.json                                             (library / GPU versions used)
   report/gnn/curves/<run>.csv                                           (training curves)
   <scores-dir>/                                                         (pair scores + OOF scores, git-ignored)
@@ -78,6 +79,8 @@ def main(argv=None):
 
     for name, rows in tables.items():
         write_results(rows, args.results_dir / name, append=False)
+    # Provenance copy of the Colab-evaluated rows; gnn_analysis.py re-evaluates into gnn.csv and reads this.
+    write_results(tables["gnn.csv"], args.results_dir / "gnn_colab.csv", append=False)
     shutil.copy(src / "versions.json", args.results_dir / "gnn_versions.json")
     args.report_dir.mkdir(parents=True, exist_ok=True)
     if (src / "run.log").exists():          # audit m3: keep the training log traceable in the repo

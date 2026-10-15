@@ -285,7 +285,7 @@ Positives and negatives/candidates from the same group (established: no author w
 
 ## Sensitivity analysis: Hadamard operator (audit M4; not a selected model)
 
-The reported node2vec uses the L1 operator, which won the validation selection fairly. The audit found that the Procrustes alignment is correct and transfers a Hadamard classifier almost losslessly (validation random ROC-AUC 0.905 transferred vs 0.901 fitted within validation), while L1 captures proximity poorly (0.665). This section reports Hadamard at the same p, q (mix chosen by the Phase 4 rule: hard fraction 0, 1:3) as a labelled sensitivity analysis only; it is not used for any comparison.
+The reported node2vec uses the L1 operator, which won the validation selection fairly. The audit found that the Procrustes alignment is correct and transfers a Hadamard classifier almost losslessly (validation random ROC-AUC 0.905 transferred vs 0.901 fitted within validation), while L1 captures proximity poorly (0.665; `results/node2vec_alignment_check.csv`, `scripts/node2vec_alignment_check.py`, seed 0). This section reports Hadamard at the same p, q (mix chosen by the Phase 4 rule: hard fraction 0, 1:3) as a labelled sensitivity analysis only; it is not used for any comparison.
 
 Test split:
 

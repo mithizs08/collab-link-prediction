@@ -14,7 +14,8 @@ Steps (selection on VALIDATION only; test scored at the end):
     general and pair-focused models): operator vector + raw cosine, same settings, 5 seeds.
  4. paired tests on test: vs Adamic-Adar / val-best heuristic, vs LightGBM; LightGBM+node2vec vs LightGBM.
 
-Outputs: results/node2vec_grid.csv, results/node2vec.csv, results/node2vec_paired.csv, results/node2vec.md
+Outputs: results/node2vec_grid.csv, results/node2vec.csv, results/node2vec_paired.csv, results/node2vec.md,
+         results/node2vec_alignment_check.csv (scripts/node2vec_alignment_check.py, called before the report)
 """
 
 from __future__ import annotations
@@ -227,6 +228,8 @@ def main(argv=None):
             prow += paired(cfg, raw_scores[(f"{base_lgbm}+node2vec", s, "test")], raw_scores[(base_lgbm, s, "test")], p,
                            f"{base_lgbm}+node2vec", base_lgbm, s, nt)
     write_results(prow, res / "node2vec_paired.csv", append=False)
+    import node2vec_alignment_check   # audit N4: the report cites it; it needs node2vec_grid.csv (written above)
+    node2vec_alignment_check.main(["--config", args.config])
     write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, ch, HMIX)
     log.info("done in %.0fs", time.time() - t0)
 
@@ -291,11 +294,15 @@ def write_report(cfg, P, Q, OP, MIX, base_lgbm, lparams, choice: pd.DataFrame, H
             out += [f"### {p} — {sub}", "", report.to_md(t), ""]
     if "node2vec_hadamard_sensitivity" in set(nv.model):
         sens = ["node2vec", "node2vec_hadamard_sensitivity", "node2vec_cosine"]
+        al = pd.read_csv(Path(cfg["paths"]["results"]) / "node2vec_alignment_check.csv").set_index("model")["value"]
         out += ["## Sensitivity analysis: Hadamard operator (audit M4; not a selected model)", "",
                 f"The reported node2vec uses the L1 operator, which won the validation selection fairly. The audit found "
                 "that the Procrustes alignment is correct and transfers a Hadamard classifier almost losslessly "
-                "(validation random ROC-AUC 0.905 transferred vs 0.901 fitted within validation), while L1 captures "
-                "proximity poorly (0.665). This section reports Hadamard at the same p, q "
+                f"(validation random ROC-AUC {al['node2vec_alignment|op=hadamard|transferred']:.3f} transferred vs "
+                f"{al['node2vec_alignment|op=hadamard|within_val']:.3f} fitted within validation), while L1 captures "
+                f"proximity poorly ({al['node2vec_alignment|op=l1|transferred']:.3f}; "
+                "`results/node2vec_alignment_check.csv`, `scripts/node2vec_alignment_check.py`, seed 0). "
+                "This section reports Hadamard at the same p, q "
                 f"(mix chosen by the Phase 4 rule: hard fraction {HMIX[0]:g}, 1:{HMIX[1]}) as a labelled sensitivity "
                 "analysis only; it is not used for any comparison.", ""]
         t = pd.DataFrame({"model": sens})

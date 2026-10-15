@@ -269,8 +269,17 @@ def build(cfg: dict) -> dict:
     d, paths = cfg["data"], cfg["paths"]
     # Snapshot location: env LINKPRED_SNAPSHOT_PATH > config data.snapshot_path > cached API pages
     # (data/raw/openalex_pages, filled by `python -m linkpred.data.fetch_openalex`). See README.
-    snap = os.environ.get("LINKPRED_SNAPSHOT_PATH") or d.get("snapshot_path")
-    source = Path(snap) if snap and Path(snap).exists() else Path(paths["raw"]) / "openalex_pages"
+    env_snap = os.environ.get("LINKPRED_SNAPSHOT_PATH")
+    if env_snap and not Path(env_snap).exists():
+        # An explicitly requested snapshot must exist: never fall back silently (audit N6).
+        raise FileNotFoundError(f"LINKPRED_SNAPSHOT_PATH={env_snap!r} does not exist")
+    snap = env_snap or d.get("snapshot_path")
+    if snap and Path(snap).exists():
+        source = Path(snap)
+    else:
+        source = Path(paths["raw"]) / "openalex_pages"
+        if snap:
+            log.warning("configured snapshot %s not found; using downloaded pages in %s", snap, source)
     if not source.exists():
         raise FileNotFoundError(
             f"No OpenAlex input found (snapshot {snap!r} missing and {source} absent). Set LINKPRED_SNAPSHOT_PATH "

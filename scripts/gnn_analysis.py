@@ -116,9 +116,11 @@ def main(argv=None):
     E = Experiment(cfg)
     k_full = cfg["negatives"]["ranking_candidates"]
     n_boot = cfg["evaluation"]["n_bootstrap"]
+    # The Colab-evaluated rows live in gnn_colab.csv, which import_colab_results.py rewrites on every import
+    # (audit N7: an earlier version renamed gnn.csv only on the first run, so a re-import was never refreshed).
     colab = res / "gnn_colab.csv"
-    if not colab.exists():                       # keep the Colab-evaluated rows for provenance (first run only)
-        (res / "gnn.csv").rename(colab)
+    if not colab.exists():
+        raise SystemExit(f"{colab} missing: run scripts/import_colab_results.py first")
     colab_df = pd.read_csv(colab)
     seeds = args.seeds if args.seeds is not None else sorted(int(x) for x in colab_df.seed.unique())
     models = sorted(colab_df.model.unique())
@@ -231,6 +233,10 @@ def write_report(cfg, res: Path, models, hyb_name):
            "`lightgbm_pair_focused` is the retrained distance-2 model (audit M1); the hybrid is built on it. Seed-mean "
            "CIs and Holm-corrected primary tests: `results/final_comparison.md`._", "",
            f"Versions used for GNN training (Colab): `{json.dumps(ver)}`", ""]
+    if hyb_name and (res / "gnn_shortcut_check.csv").exists():
+        _, note = report.shortcut_labels(res, hyb_name.split("+", 1)[1], hyb_name)
+        out += [note + " All `gnn_pair_focused_*` models share this training set (their shortcut checks are in the "
+                "distance-shortcut section below); the `gnn_general_*` models use random negatives and are unaffected.", ""]
     chk = res / "gnn_reeval_check.json"
     if chk.exists():
         c = json.loads(chk.read_text())

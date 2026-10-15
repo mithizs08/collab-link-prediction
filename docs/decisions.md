@@ -417,13 +417,15 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
 
 ## 2026-10-14 — Phase 5 findings (for the record; numbers in results/*.csv)
 - **Pair-focused LightGBM** is the best model on `hard_active` (test 0.813 vs general LightGBM 0.738
-  and Adamic-Adar 0.706; +0.107 over AA, 5/5 seeds) and `rank_hard_active`, but it **collapses
+  and Adamic-Adar 0.706; +0.107 over AA, 5/5 seeds — superseded, see note at the end of this item) and `rank_hard_active`, but it **collapses
   outside the distance-2 setting** (rank_random MRR 0.043, random ROC-AUC 0.229 — below chance):
   every training negative shared a co-author, so it learned that sharing one signals *no* link.
   It is a within-friend-of-friend ranker, not a general recommender; report it that way.
+  **[Superseded 2026-10-15, audit N1:** these per-seed counts describe the shortcut-trained pair-focused model on pooled metrics and are no longer in any results file. Current numbers: macro metrics, retrained (distance-2) model, one paired test on seed-averaged scores, Holm-corrected: `results/final_comparison.md`, `results/final_comparison_tests.csv`, `results/final_summary.md`.**]**
 - **General models on `hard_active`:** logistic regression (0.752) beats the general LightGBM
   (0.738); both beat AA significantly on `hard_active`; LightGBM's `rank_hard_active` gain over AA
   is not robust (1/5 seeds). Jaccard becomes the validation-best heuristic on `rank_hard_active`.
+  **[Superseded 2026-10-15, audit N1:** these per-seed counts describe the shortcut-trained pair-focused model on pooled metrics and are no longer in any results file. Current numbers: macro metrics, retrained (distance-2) model, one paired test on seed-averaged scores, Holm-corrected: `results/final_comparison.md`, `results/final_comparison_tests.csv`, `results/final_summary.md`.**]**
 - **node2vec** loses to Adamic-Adar on every pair-level protocol (hard_active 0.575 with the aligned
   classifier; 0.615 with raw cosine). Raw cosine beats the aligned classifier everywhere, so the
   Procrustes + logistic-regression pipeline loses information; cosine is the fairer node2vec number.
@@ -431,6 +433,7 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   which won the validation selection fairly. See "node2vec correction" in the audit-remediation entries.
   p and q barely matter (validation cosine 0.642–0.647 across the 3 × 3 grid). Adding node2vec to
   the pair-focused LightGBM does not help on `hard_active` (−0.003, worse in 3/5 seeds).
+  **[Superseded 2026-10-15, audit N1:** the current comparison (macro, retrained pair-focused model) is the `lightgbm_pair_focused+node2vec - lightgbm_pair_focused` rows of `results/node2vec_paired.csv`.**]**
 
 ## 2026-10-15 — GNN design (Phase 6)
 - **Models:** GraphSAGE (2–3 layers) and GAT (2 layers, 4 heads; hidden layers concatenate heads,
@@ -491,9 +494,11 @@ One entry per decision, newest at the bottom. Format: **Decision**, **Alternativ
   significantly worse inside both newcomer-matched strata; it is far below the pair-focused LightGBM
   (−0.126, 5/5 seeds). General-objective GNNs score 0.48–0.59 on `hard_active` while reaching
   0.75–0.77 on `hard`: they learned activity, not pairs.
+  **[Superseded 2026-10-15, audit N1:** these per-seed counts describe the shortcut-trained pair-focused model on pooled metrics and are no longer in any results file. Current numbers: macro metrics, retrained (distance-2) model, one paired test on seed-averaged scores, Holm-corrected: `results/final_comparison.md`, `results/final_comparison_tests.csv`, `results/final_summary.md`.**]**
 - **Hybrid:** adding the out-of-fold GNN score to the pair-focused LightGBM gives a small, consistent
   gain on `hard_active` (+0.012, 5/5 seeds; inside the established stratum the seed means differ by +0.009, not paired-tested) and an unstable one
   on `rank_hard_active` (+0.010, 2/5 seeds).
+  **[Superseded 2026-10-15, audit N1:** these per-seed counts describe the shortcut-trained pair-focused model on pooled metrics and are no longer in any results file. Current numbers: macro metrics, retrained (distance-2) model, one paired test on seed-averaged scores, Holm-corrected: `results/final_comparison.md`, `results/final_comparison_tests.csv`, `results/final_summary.md`.**]**
 
 ## 2026-10-15 — Finding: newcomer composition of `hard_active` (OPEN, for the project owner)
 - **Observation:** activity matching makes newcomers (≤ 2 works before the cutoff) rare among
@@ -534,9 +539,11 @@ Each entry below resolves one audit finding; numbers are in the results files na
   newcomer imbalance". Implemented in `linkpred.eval.protocols` (`_group_classification`, `_group_ranking`);
   bootstrap CIs and paired tests resample within each group (`linkpred.eval.bootstrap`, generic engine).
 - **Rejected alternative:** re-sampling negatives to match the positives' newcomer mix. Newcomers who publish
-  in the prediction year without forming a new collaboration are genuinely rare (test: newcomer pairs are
-  281 of the 1,684 activity-matched negatives vs 585 of 1,684 distance-2 positives, `results/baselines.csv`
-  group counts), so matching would mean heavily over-sampling a tiny pool and re-running every model.
+  in the prediction year without forming a new collaboration are genuinely rare (validation: newcomer pairs
+  are 231 of the 1,432 activity-matched negatives vs 446 of 1,432 distance-2 positives; test shows the same
+  pattern, 281 of 1,684 vs 585 of 1,684; `results/baselines.csv` group counts), so matching would mean heavily
+  over-sampling a tiny pool and re-running every model. (Rationale re-cited validation-first 2026-10-15, audit
+  N9; the decision rests on the validation counts.)
 - **Cold-start breakdowns** of Phases 3–6 are replaced by the group-matched tables; the old positives-only
   strata are kept in each report's appendix with a note.
 - **Reference row:** every results table includes `prefer_newer` = −min(works before the cutoff) of the two
@@ -578,8 +585,9 @@ Each entry below resolves one audit finding; numbers are in the results files na
 
 ### node2vec correction (audit M4)
 - The earlier entry ("the Procrustes + logistic-regression pipeline loses information") was wrong. The
-  alignment is correct and transfers a Hadamard classifier almost losslessly (audit: validation random
-  ROC-AUC 0.905 transferred vs 0.901 fitted within validation); the weak numbers come from the **L1
+  alignment is correct and transfers a Hadamard classifier almost losslessly (validation random
+  ROC-AUC 0.905 transferred vs 0.901 fitted within validation; L1 0.665 transferred;
+  `results/node2vec_alignment_check.csv`, written by `scripts/node2vec_alignment_check.py`, audit N4); the weak numbers come from the **L1
   operator**, which won the validation selection fairly (validation pooled `hard_active` at p = q = 2: L1
   0.605, L2 0.603, Hadamard 0.571, average 0.410, `results/node2vec_grid.csv`) but captures proximity
   poorly. L1 remains the reported node2vec; Hadamard is reported as a labelled sensitivity analysis
@@ -631,3 +639,31 @@ Each entry below resolves one audit finding; numbers are in the results files na
   (`results/gnn.csv`); the 9,800 pooled rows match the Colab evaluation to 1.1e-16
   (`results/gnn_reeval_check.json`; Colab-evaluated rows kept in `results/gnn_colab.csv`). The best GNN by
   validation macro `hard_active` is still `gnn_pair_focused_sage_structural`.
+
+## 2026-10-15 — Verification findings N1–N9 (`docs/audit_phases_0_6.md`, verification section)
+- **N2 (rule 7):** `scripts/run_gnn.py` now builds pair-focused supervision and out-of-fold pairs with
+  distance-2 positives only (`models.gnn.pair_focused_d2_only: true`, the default). The saved Colab models
+  predate this and were **not** retrained (no Colab rerun); any future run follows rule 7.
+- **N3:** every report that shows the best GNN or the hybrid labels the GNN "trained with the distance
+  shortcut" with its shortcut check (0.775, read from `results/gnn_shortcut_check.csv` by
+  `report.shortcut_labels`) and the hybrid "built on the shortcut-trained GNN" (`final_comparison.md`,
+  `gnn.md`, `final_summary.md`). The hybrid stays a secondary result.
+- **N1:** the six stale per-seed numbers in the Phase 5 and Phase 6 entries are marked superseded in place,
+  pointing to `final_comparison*.csv` / `final_summary.md`; nothing deleted.
+- **N4:** `scripts/node2vec_alignment_check.py` (validation only, seed 0, selected p, q) writes
+  `results/node2vec_alignment_check.csv`; it reproduces the audit's 0.905 / 0.901 (Hadamard transferred /
+  within validation) and 0.665 (L1 transferred). `run_node2vec.py` calls it and reads the numbers from it.
+- **N5:** the config-key test now resolves full access paths with an AST analysis (aliases, parameters
+  across call sites, constant loops, wildcards for non-constant keys; accesses must exist in the config tree).
+  Planted dead keys whose bare names appear elsewhere (`models.gnn.lr`, `evaluation.epochs`,
+  `features.n_bootstrap`, `models.lightgbm.search.patience`, `data.seed`) are all caught. It found two keys
+  the name-based test had missed, now removed: `data.source` (only OpenAlex is supported) and
+  `evaluation.protocols` (protocols are defined in `linkpred.eval.protocols.PROTOCOL_ORDER`). Limitation: a
+  wildcard access (`cfg["splits"][name]`) counts as reading every sibling key at that level.
+- **N6:** an explicitly set `LINKPRED_SNAPSHOT_PATH` that does not exist raises; a configured
+  `data.snapshot_path` that does not exist logs a warning before falling back to downloaded pages (test added).
+- **N7:** `import_colab_results.py` writes `results/gnn_colab.csv` on every import; `gnn_analysis.py` reads it
+  and no longer renames `gnn.csv` (test added).
+- **N8:** handled in Phase 7 (grid edge, validation only).
+- **N9:** the newcomer "rejected alternative" rationale cites validation counts first (231 of 1,432
+  negatives vs 446 of 1,432 positives), test second.
