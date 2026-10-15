@@ -12,11 +12,15 @@ Values for learned models are the mean over seeds of the per-seed metric, with a
 (each resample is applied to every seed and the seeds' metrics are averaged). Deterministic models have
 an ordinary bootstrap CI. `seed` = -1 in the output marks a mean over seeds 0-4.
 
-Primary test family (Holm-corrected together, test split; the same family on validation separately):
+Primary test family (Holm-corrected together, test split; the same family on validation separately;
+docs/decisions.md, "Phase 7 design"):
   each of {prefer_newer, jaccard, logreg, lightgbm, lightgbm_pair_focused, node2vec, best GNN, hybrid}
   minus adamic_adar, on both headline metrics                                          (16 tests)
   hybrid minus lightgbm_pair_focused, and lightgbm_pair_focused minus lightgbm, on both (4 tests)
-Each test: one paired bootstrap (1,000 resamples) on the seed-AVERAGED scores of each model.
+  Phase 7: disambiguation sensitivity, pair-focused LightGBM minus Adamic-Adar on the reduced data, on both
+  headline metrics (2; raw p from results/disambiguation_sensitivity_tests.csv); two-stage minus general
+  LightGBM on pooled and macro hard ROC-AUC (2; raw p from results/two_stage_tests.csv)  (24 tests)
+Each test: one paired bootstrap (evaluation.n_bootstrap_final = 5,000 resamples) on the seed-AVERAGED scores.
 
 Writes results/final_comparison.csv, results/final_comparison_tests.csv, results/final_comparison.md.
 """
@@ -50,9 +54,30 @@ HEAD = (("hard_active", "macro", "roc_auc"), ("rank_hard_active", "macro", "quer
 EXTRA = (("hard_active", "established_matched", "roc_auc"), ("hard_active", "newcomer_matched", "roc_auc"),
          ("rank_hard_active", "established_matched", "query_auc"), ("rank_hard_active", "newcomer_matched", "query_auc"),
          ("hard", "macro", "roc_auc"), ("rank_hard", "macro", "query_auc"),
-         ("hard_active", "all", "roc_auc"), ("rank_hard_active", "full_candidates", "mrr"))
+         ("hard_active", "all", "roc_auc"), ("rank_hard_active", "full_candidates", "mrr"),
+         ("hard", "all", "roc_auc"), ("random", "all", "roc_auc"))
+PHASE7_TESTS = ("disambiguation_sensitivity_tests.csv", "two_stage_tests.csv")
 PF = "lightgbm_pair_focused"
 GNN_DIR = Path("data/interim/gnn")
+
+
+NEG = {"hard_active": "hard_active", "rank_hard_active": "hard_active", "hard": "hard", "rank_hard": "hard",
+       "random": "random"}
+
+
+def phase7_tests(res: Path, split: str) -> dict:
+    """{(comparison, protocol, subset, metric): diff, CI, raw p} from the Phase 7 scripts' test files."""
+    out = {}
+    for f in PHASE7_TESTS:
+        t = pd.read_csv(res / f)
+        t = t[t.split == split]
+        for (name, p, sub), d in t.groupby(["model", "protocol", "subset"], sort=False):
+            for m in d.metric[~d.metric.str.endswith("_p_value")]:
+                metric = m[:-len("_diff")]
+                dd, pp = d[d.metric == m].iloc[0], d[d.metric == f"{m}_p_value"].iloc[0]
+                out[(name, p, sub, metric)] = {"diff": dd.value, "ci_low": dd.ci_low, "ci_high": dd.ci_high,
+                                               "p_value": pp.value, "negative_type": dd.negative_type}
+    return out
 
 
 def node2vec_choice(res: Path, ncfg: dict):
@@ -78,7 +103,7 @@ def main():
     res = Path(cfg["paths"]["results"])
     E = Experiment(cfg)
     seeds = cfg["seeds"]
-    n_boot = cfg["evaluation"]["n_bootstrap"]
+    n_boot = cfg["evaluation"]["n_bootstrap_final"]
     k_full = cfg["negatives"]["ranking_candidates"]
     lmix = select_mix(pd.read_csv(res / "negative_mix_grid.csv").to_dict("records"), "lightgbm")[0]
     lr_mix = select_mix(pd.read_csv(res / "negative_mix_grid.csv").to_dict("records"), "logreg")[0]
@@ -133,7 +158,7 @@ def main():
                                                                            E.splits[split][t][b].values, OP))[:, 1]
                                     for k, (t, a, b) in PairScores.SOURCES.items()})
     models = ["prefer_newer", "adamic_adar", "jaccard", "logreg", "lightgbm", PF, "node2vec", best_gnn, hybrid]
-    protos = ("hard_active", "rank_hard_active", "hard", "rank_hard")
+    protos = ("hard_active", "rank_hard_active", "hard", "rank_hard", "random")
 
     def raws_of(model, split):
         return [evaluate(None, E.splits[split], split, model, 0, cfg["seed"], 0, protocols=protos, k_full=k_full,
@@ -153,11 +178,11 @@ def main():
                 rng = np.random.default_rng([cfg["seed"], 31, k, 0 if split == "val" else 1])
                 lo, hi = bs.seed_mean_ci([r[p][sub] for r in R[m]], metric, rng, n_boot)
                 rows.append({"model": m, "split": split, "protocol": p, "subset": sub,
-                             "negative_type": "hard_active" if p.endswith("active") else "hard",
+                             "negative_type": NEG[p],
                              "seed": -1 if len(vals) > 1 else cfg["seed"], "metric": metric,
                              "value": float(np.mean(vals)), "ci_low": lo, "ci_high": hi})
                 rows.append({"model": m, "split": split, "protocol": p, "subset": sub,
-                             "negative_type": "hard_active" if p.endswith("active") else "hard",
+                             "negative_type": NEG[p],
                              "seed": -1 if len(vals) > 1 else cfg["seed"], "metric": f"{metric}_seed_sd",
                              "value": float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0})
         A = {m: averaged_raw(m, split) for m in models}
@@ -168,13 +193,23 @@ def main():
                 rng = np.random.default_rng([cfg["seed"], 41, i, j, 0 if split == "val" else 1])
                 r = paired_test(A[a], A[b], p, sub, metric, rng, n_boot)
                 res_tests[(a, b, p, metric)] = r
-        adj = bs.holm({k: v["p_value"] for k, v in res_tests.items()})
+        # Phase 7 comparisons: raw p-values from their scripts (same 5,000-resample procedure), Holm-corrected here.
+        ext = phase7_tests(res, split)
+        pv = {("own",) + k: v["p_value"] for k, v in res_tests.items()}
+        pv.update({("ext",) + k: v["p_value"] for k, v in ext.items()})
+        adj = bs.holm(pv)
+        assert len(pv) == 24, f"family has {len(pv)} tests, decisions.md defines 24"
         for (a, b, p, metric), r in res_tests.items():
             base = {"model": f"{a} - {b}", "split": split, "protocol": p, "subset": "macro",
                     "negative_type": "hard_active", "seed": -1}
             tests += [{**base, "metric": f"{metric}_diff", "value": r["diff"], "ci_low": r["ci_low"], "ci_high": r["ci_high"]},
                       {**base, "metric": f"{metric}_diff_p_value", "value": r["p_value"]},
-                      {**base, "metric": f"{metric}_diff_p_holm", "value": adj[(a, b, p, metric)]}]
+                      {**base, "metric": f"{metric}_diff_p_holm", "value": adj[("own", a, b, p, metric)]}]
+        for (name, p, sub, metric), r in ext.items():
+            base = {"model": name, "split": split, "protocol": p, "subset": sub, "negative_type": r["negative_type"], "seed": -1}
+            tests += [{**base, "metric": f"{metric}_diff", "value": r["diff"], "ci_low": r["ci_low"], "ci_high": r["ci_high"]},
+                      {**base, "metric": f"{metric}_diff_p_value", "value": r["p_value"]},
+                      {**base, "metric": f"{metric}_diff_p_holm", "value": adj[("ext", name, p, sub, metric)]}]
         print(split, "done", flush=True)
     write_results(rows, res / "final_comparison.csv", append=False)
     write_results(tests, res / "final_comparison_tests.csv", append=False)
@@ -200,7 +235,7 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
             return "—"
         g = lambda k: x[x.metric == f"{metric}_diff{k}"].iloc[0]
         dd = g("")
-        return f"{dd.value:+.3f} [{dd.ci_low:+.3f}, {dd.ci_high:+.3f}], p={g('_p_value').value:.3f}, Holm p={g('_p_holm').value:.3f}"
+        return f"{dd.value:+.3f} [{dd.ci_low:+.3f}, {dd.ci_high:+.3f}], p={g('_p_value').value:.4f}, Holm p={g('_p_holm').value:.4f}"
 
     sc_lab, sc_note = report.shortcut_labels(res, best_gnn, hybrid)
     label = {**sc_lab, PF: f"{PF} (retrained, distance-2 positives)", "prefer_newer": "prefer_newer (reference)"}
@@ -213,8 +248,9 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
            "because group matching changes candidate counts). **Values** for learned models are the mean over 5 seeds with a "
            "**seed-mean bootstrap 95% CI** (each resample applied to every seed, seeds' metrics averaged); sd = seed-to-seed "
            "sd. Deterministic models: ordinary bootstrap CI. **Tests** (primary): one paired bootstrap per comparison on "
-           "the seed-averaged scores, 1,000 resamples, Holm-corrected across the 20-comparison family defined in "
-           "`docs/decisions.md` (each split corrected separately).", "",
+           "the seed-averaged scores, 5,000 resamples, Holm-corrected across the 24-comparison family defined in "
+           "`docs/decisions.md` (\"Phase 7 design\"; each split corrected separately). The smallest attainable raw p is "
+           "0.0002.", "",
            f"Best GNN = {best_gnn} (highest validation macro hard_active ROC-AUC). node2vec = reported configuration "
            f"(p = {n2v[0]:g}, q = {n2v[1]:g}, {n2v[2]} operator, chosen on validation).", "", sc_note, ""]
     for split in ("test", "val"):
@@ -231,11 +267,27 @@ def write_report(res: Path, models, best_gnn, hybrid, n2v):
         for p, metric in (("hard_active", "roc_auc"), ("rank_hard_active", "query_auc")):
             tbl[f"{p} macro {metric}"] = [test_cell(hybrid, split, p, metric, PF), test_cell(PF, split, p, metric, "lightgbm")]
         out += ["### Other headline comparisons", "", report.to_md(tbl), ""]
+        tp = t[(t.split == split) & t.model.str.contains("no_flagged_ids|two_stage", regex=True)]
+        prow = []
+        for (name, p, sub), d in tp.groupby(["model", "protocol", "subset"], sort=False):
+            for m in d.metric[d.metric.str.endswith("_diff")]:
+                g = lambda k: d[d.metric == f"{m}{k}"].iloc[0]
+                prow.append({"comparison": name, "metric": f"{p} {sub} {m[:-5]}",
+                             "difference [95% CI]": f"{g('').value:+.3f} [{g('').ci_low:+.3f}, {g('').ci_high:+.3f}]",
+                             "p": f"{g('_p_value').value:.4f}", "Holm p": f"{g('_p_holm').value:.4f}"})
+        if prow:
+            out += ["### Phase 7 comparisons in the family (disambiguation sensitivity, two-stage)", "",
+                    "Diff and raw p from `results/disambiguation_sensitivity_tests.csv` / `results/two_stage_tests.csv`; "
+                    "Holm across all 24 tests. Model values: `results/disambiguation_sensitivity.csv`, "
+                    "`results/two_stage.csv`, summarised in `results/final_summary.md`.", "",
+                    report.to_md(pd.DataFrame(prow)), ""]
         tbl = pd.DataFrame({"model": [label.get(m, m) for m in models]})
         for p, sub, metric, lab in (("hard", "macro", "roc_auc", "hard macro ROC-AUC (includes activity)"),
                                     ("rank_hard", "macro", "query_auc", "rank_hard macro query AUC (includes activity)"),
                                     ("hard_active", "all", "roc_auc", f"hard_active ROC-AUC ({report.POOLED_NOTE})"),
-                                    ("rank_hard_active", "full_candidates", "mrr", f"rank_hard_active MRR, full lists ({report.POOLED_NOTE})")):
+                                    ("rank_hard_active", "full_candidates", "mrr", f"rank_hard_active MRR, full lists ({report.POOLED_NOTE})"),
+                                    ("hard", "all", "roc_auc", f"hard ROC-AUC (includes activity; {report.POOLED_NOTE})"),
+                                    ("random", "all", "roc_auc", "random ROC-AUC")):
             tbl[lab] = [cell(m, split, p, sub, metric) for m in models]
         out += ["### Secondary metrics", "", report.to_md(tbl), ""]
     (res / "final_comparison.md").write_text("\n".join(out))

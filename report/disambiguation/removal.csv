@@ -1,0 +1,4 @@
+split,flagged_nodes,flagged_uts_nodes,edges_before,edges_after,positives_before,positives_after,d2_positives_before,d2_positives_after,neg_random_before,neg_random_after,neg_hard_before,neg_hard_after,neg_hard_active_before,neg_hard_active_after,train_pool_random_before,train_pool_random_after,train_pool_hard_before,train_pool_hard_after,train_pool_hard_active_before,train_pool_hard_active_after,ranking_rows_before,ranking_rows_after,ranking_hard_rows_before,ranking_hard_rows_after,ranking_hard_active_rows_before,ranking_hard_active_rows_after
+train,5425,1793,389025,308574,2257,1363,1343,744,2257,1634,2257,1162,1343,659,6771.0,4819.0,6771.0,3661.0,6771.0,3438.0,225700,115046,121055,51341,101689,42848
+val,6404,2078,462955,364439,2225,1319,1432,767,2225,1536,2225,1199,1432,691,,,,,,,222500,110871,131250,50935,110687,41913
+test,7592,2454,536306,419357,2533,1546,1684,903,2533,1720,2533,1316,1684,785,,,,,,,253300,128248,153031,58404,130245,47531

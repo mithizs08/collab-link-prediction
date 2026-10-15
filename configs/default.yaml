@@ -70,6 +70,7 @@ evaluation:
   # Headline (2026-10-15, audit M2): macro within-group score for the pair-level protocols
   # (report.HEADLINE); earlier selection rules keep the pooled metric they were defined on (report.POOLED).
   n_bootstrap: 1000
+  n_bootstrap_final: 5000             # final reporting (Phase 7): final_comparison.py and the robustness scripts
   rank_ks_random: [20, 50, 100]
   rank_ks_hard: [10, 20, 50]     # Hits@100 dropped: near-trivial with <= 101 items
 
@@ -109,6 +110,12 @@ models:
       num_leaves: [3, 7, 15, 31]
       learning_rate: [0.03, 0.1]
       min_child_samples: [20, 100, 300]
+    pair_focused_search:              # pair-focused LightGBM only (Phase 7, audit N8): the 24-config grid chose its
+      # most regularised corner (3 leaves, min_child 300), so it is extended one step beyond it (2 leaves;
+      # min_child 500, 1000) -> 50 configs, a superset of `search`. Selected on validation pooled hard_active.
+      num_leaves: [2, 3, 7, 15, 31]
+      learning_rate: [0.03, 0.1]
+      min_child_samples: [20, 100, 300, 500, 1000]
 
   node2vec:
     embedding_dim: 128

@@ -2,7 +2,7 @@ PYTHON ?= python
 CONFIG ?= configs/default.yaml
 RUN = PYTHONPATH=src $(PYTHON) -m linkpred.cli --config $(CONFIG)
 
-.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis final
+.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis phase7 final
 
 help:
 	@echo "Targets: data splits baselines features train evaluate report test all"
@@ -39,8 +39,14 @@ gnn-import:  ## make gnn-import SRC=~/Downloads/gnn_results
 gnn-analysis: ## re-evaluate GNN scores, paired tests, hybrid, shortcut check, results/gnn.md (after gnn-import)
 	PYTHONPATH=src $(PYTHON) scripts/gnn_analysis.py
 
-final:       ## primary comparison: macro within-group metrics, seed-mean CIs, Holm-corrected tests
+phase7:      ## robustness (validation then test): grid edge, two-stage model, disambiguation sensitivity
+	PYTHONPATH=src $(PYTHON) scripts/grid_edge.py --config $(CONFIG)
+	PYTHONPATH=src $(PYTHON) scripts/two_stage.py --config $(CONFIG) --splits val test
+	PYTHONPATH=src $(PYTHON) scripts/disambiguation_sensitivity.py --config $(CONFIG) --splits val test
+
+final:       ## primary comparison (24-test Holm family incl. phase7 tests, 5,000 resamples) + results/final_summary.md
 	PYTHONPATH=src $(PYTHON) scripts/final_comparison.py
+	PYTHONPATH=src $(PYTHON) scripts/final_summary.py
 
 evaluate:    ## score models on val/test, write results/*.csv
 	$(RUN) evaluate

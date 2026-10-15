@@ -621,6 +621,7 @@ Each entry below resolves one audit finding; numbers are in the results files na
   is now written by `scripts/node2vec_quality.py`.
 
 ### Remediation results (numbers in `results/final_comparison*.csv`, `feature_models.csv`, `gnn_shortcut_check.csv`)
+- **[Superseded 2026-10-15 by Phase 7:** the pair-focused LightGBM was retrained with the parameters selected on the extended grid (audit N8) and the final tests use 5,000 resamples and a 24-test family, so the pair-focused, hybrid and test numbers below are those of the 3-leaf model with 1,000 resamples. Current numbers: `results/final_summary.md`, `results/final_comparison*.csv`.**]**
 - **Retrained pair-focused LightGBM (distance-2 positives):** test macro `hard_active` ROC-AUC 0.799
   [0.781, 0.816] vs 0.798 for the shortcut version (feature-model appendix); random ROC-AUC 0.906 (shortcut
   0.229), so the collapse was entirely the training-set artefact. Its search chose the most regularised
@@ -667,3 +668,64 @@ Each entry below resolves one audit finding; numbers are in the results files na
 - **N8:** handled in Phase 7 (grid edge, validation only).
 - **N9:** the newcomer "rejected alternative" rationale cites validation counts first (231 of 1,432
   negatives vs 446 of 1,432 positives), test second.
+
+## 2026-10-15 — Phase 7 design (written before any Phase 7 test-split run)
+
+### Grid edge for the pair-focused LightGBM (audit N8)
+- **What:** the pair-focused search grid is extended one step beyond its selected corner (3 leaves,
+  min_child 300): `models.lightgbm.pair_focused_search` = leaves {2, 3, 7, 15, 31} × lr {0.03, 0.1} ×
+  min_child {20, 100, 300, 500, 1000} (50 configs, a superset of the 24). Same rule as Phase 4/5: seed 0,
+  validation pooled `hard_active` ROC-AUC. `scripts/grid_edge.py` ran the 26 new configs; a full rerun of
+  `run_feature_models.py` reproduced the selection.
+- **Outcome (validation only):** the selection **changed** from (3 leaves, lr 0.03, min_child 300; 0.8371) to
+  (**2 leaves, lr 0.1, min_child 20**; 0.8388), `results/lgbm_search.csv`. The margin (0.0017) is far inside
+  seed-to-seed noise and the surface is flat (the 10 best configs span 0.836–0.839), so this is a rule-driven
+  change, not evidence for a better model. Larger min_child (500, 1000) is worse for every leaf count
+  (0.829–0.834). 2 leaves (single-split trees, an additive model) is the smallest possible tree, so the leaf
+  dimension cannot be extended further; lr 0.1 is the top of the lr grid, which was not extended (the
+  instruction was one step on leaves / min_child, and chasing a 0.002 validation gain further would tune to
+  validation noise). The 5 seeds and everything built on the pair-focused model (feature-model tables,
+  node2vec + LightGBM, hybrid, shortcut check, final comparison) were retrained with the new parameters.
+  The shortcut appendix model keeps the original 24-config grid.
+
+### Disambiguation sensitivity (plan of 2026-10-14)
+- Flagged IDs (all 8,961, every institution) removed from the input graphs (edges, degrees, the features'
+  author tables) and from every pair set, **on the same splits and seeds** (pairs are filtered, not
+  re-sampled). Distance-2 sets are re-checked in the reduced graph (positive distances recomputed; hard /
+  activity-matched negatives, rank_hard candidates and hard training pools kept only if a common neighbour
+  remains; rank_hard queries only if the positive is still at distance 2), so rule 7 holds. Features are
+  recomputed with the main pipeline's fixed parameters (Katz beta, half-life); nothing is re-selected.
+  Models: pair-focused LightGBM (main parameters, 5 seeds), Adamic-Adar, prefer_newer reference.
+  `scripts/disambiguation_sensitivity.py`. The flag is a heuristic and removes correct authors who share a name.
+
+### Two-stage model
+- Stage 1 = LightGBM P(both authors active in the prediction year) on the 27 pre-cutoff pair features, trained
+  on the train split's distance-2 pool with 2023 activity labels, grid `models.lightgbm.search` selected on
+  validation (2024 activity of the validation `neg_hard` pairs). Stage 2 = pair-focused LightGBM. Score =
+  product. Compared with the general LightGBM on pooled `hard` (which includes activity). `scripts/two_stage.py`.
+
+### Final statistics: the predefined family is extended (supersedes the 20-test family above)
+- **Resamples:** 5,000 (`evaluation.n_bootstrap_final`) for every final CI and test (`final_comparison.py`,
+  `disambiguation_sensitivity.py`, `two_stage.py`). The smallest attainable raw p is then 1/5,000 = 0.0002 (`bootstrap._p_value`).
+- **Family (Holm-corrected together per split; test and validation separately): 24 tests** =
+  the 20 above, plus
+  - disambiguation sensitivity: pair-focused LightGBM − Adamic-Adar on the reduced data, on macro
+    `hard_active` ROC-AUC and macro `rank_hard_active` query AUC (2);
+  - two-stage − general LightGBM on pooled `hard` ROC-AUC (the requested comparison) and macro `hard` ROC-AUC (2).
+- Each Phase 7 script writes raw p-values; `final_comparison.py` applies Holm across all 24 and writes every
+  adjusted p to `results/final_comparison_tests.csv`.
+- **Headline model:** the pair-focused LightGBM. The hybrid stays a secondary result with the shortcut caveat.
+
+## 2026-10-15 — Phase 7 results (numbers in `results/final_summary.md` and the files it cites)
+- **Grid edge:** selection changed on validation (2 leaves, lr 0.1, min_child 20); retrained test macro
+  `hard_active` 0.799 and `rank_hard_active` 0.792 are unchanged from the 3-leaf model to three decimals.
+- **Two-stage:** validation first (pooled `hard` 0.848 vs general LightGBM 0.861), then test: 0.854 vs 0.864,
+  −0.010, Holm-significant. It is worse, not better; the design was not changed after validation.
+- **Disambiguation:** removing the flagged IDs drops 46% of test distance-2 positives; the pair-focused
+  LightGBM still beats Adamic-Adar (+0.071 / +0.090, Holm-significant). Reported as a limited check.
+- **Final family (24 tests, 5,000 resamples):** every test is Holm-significant on test, including
+  hybrid − pair-focused on `rank_hard_active` (+0.006, Holm p 0.014), which was not significant with 1,000
+  resamples and the 20-test family (Holm p 0.052). The change comes from the finer p resolution (0.0002 vs
+  0.001) and the retrained base model; the effect is under 0.01 AUC and the hybrid is built on the
+  shortcut-trained GNN, so it stays secondary.
+- **Research questions** were never written down; `final_summary.md` states them explicitly (RQ1–RQ3) and says so.

@@ -135,6 +135,17 @@ def paired(cfg, model_raw, ref_raw, protocol, label_a, label_b, seed, neg_type, 
             {**base, "metric": f"{metric}_diff_p_value", "value": res["p_value"]}]
 
 
+def pf_search_config(E, default, mix, seed, pf_name, d2, nl, lr, mcs):
+    """One pair-focused search config: fit on train, validation pooled hard_active rows + n_trees."""
+    p = {**default, "num_leaves": nl, "learning_rate": lr, "min_child_samples": mcs}
+    m = E.fit("lightgbm", ALL_FEATURES, mix, seed, p, active=True, d2_only=d2)
+    name = f"{pf_name}|leaves={nl}|lr={lr:g}|min_child={mcs}"
+    r, _ = E.evaluate(m, ALL_FEATURES, name, seed, "val", 0, ("hard_active",))
+    r = [x for x in r if x["subset"] == "all"]
+    r.append({**r[0], "metric": "n_trees", "value": float(m.best_iteration_ or m.n_estimators)})
+    return r, p
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/default.yaml")
@@ -184,16 +195,14 @@ def main(argv=None):
     # mix), early stopping on val hard_active AP, selected by val POOLED hard_active ROC-AUC (as defined in
     # Phase 5). Main model: distance-2 positives only (audit M1). The pre-audit construction (all positives,
     # so distance >= 3 identifies a positive) is kept as "lightgbm_pair_focused_shortcut" for the appendix.
+    # The main pair-focused model searches the extended grid (Phase 7, audit N8); the shortcut appendix model
+    # keeps the original 24-config grid.
     pf_params = {}
     for pf_name, d2 in (("lightgbm_pair_focused", True), ("lightgbm_pair_focused_shortcut", False)):
         best_pf, pf_auc = None, -1
-        for nl, lr, mcs in itertools.product(sgrid["num_leaves"], sgrid["learning_rate"], sgrid["min_child_samples"]):
-            p = {**default, "num_leaves": nl, "learning_rate": lr, "min_child_samples": mcs}
-            m = E.fit("lightgbm", ALL_FEATURES, mix["lightgbm"], cfg["seed"], p, active=True, d2_only=d2)
-            name = f"{pf_name}|leaves={nl}|lr={lr:g}|min_child={mcs}"
-            r, _ = E.evaluate(m, ALL_FEATURES, name, cfg["seed"], "val", 0, ("hard_active",))
-            r = [x for x in r if x["subset"] == "all"]
-            r.append({**r[0], "metric": "n_trees", "value": float(m.best_iteration_ or m.n_estimators)})
+        g = lcfg["pair_focused_search"] if d2 else sgrid
+        for nl, lr, mcs in itertools.product(g["num_leaves"], g["learning_rate"], g["min_child_samples"]):
+            r, p = pf_search_config(E, default, mix["lightgbm"], cfg["seed"], pf_name, d2, nl, lr, mcs)
             search_rows += r
             auc = headline(r, "val", "hard_active")
             if round(auc, 6) > round(pf_auc, 6):

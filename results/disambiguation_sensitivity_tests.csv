@@ -1,0 +1,9 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,val,hard_active,macro,hard_active,-1,roc_auc_diff,0.08550387107154411,0.06139372900833792,0.11072316522464866
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,val,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,val,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.09067520134419826,0.069407222472589,0.11242240603767711
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,val,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,test,hard_active,macro,hard_active,-1,roc_auc_diff,0.07120470133818801,0.04859512222007483,0.09496036707501719
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,test,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,test,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.08954890488525269,0.07029539766022333,0.10888943091103265
+lightgbm_pair_focused|no_flagged_ids - adamic_adar|no_flagged_ids,test,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
