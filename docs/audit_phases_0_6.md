@@ -367,3 +367,101 @@ LightGBM early stopping really uses average precision: AP is the first metric re
 | m8 | Cache checked by object identity; test added. |
 | m9 | Two activity-matched gains explained (decisions.md, feature_models.md). |
 | m10 | Recorded in decisions.md. |
+
+---
+
+## Verification of the resolution (2026-10-15, independent re-check)
+_Checked against the code and results files at `a492e89`, not against the resolution text. Scripts
+were kept outside the repo; key outputs are quoted. Nothing was changed except this section._
+
+### Summary
+| ID | Status | Evidence / remaining issue |
+|---|---|---|
+| M1 | **Partly resolved** | LightGBM: verified. The training set built by `training_pairs(active=True, d2_only=True)` has 1,343 positives, 0.000 of them at distance ≥ 3 (the shortcut construction: 0.405); test macro hard_active 0.7992, random 0.9059 (shortcut model 0.7981 / 0.2285, kept in `feature_models.csv` and the appendix). Hybrid: refitting seed 0 reproduces `gnn_hybrid.csv` exactly (macro hard_active 0.804898). GNN shortcut: quantified as claimed (`gnn_shortcut_check.csv`: 0.775 ± 0.006). **Remaining:** see N2 and N3. |
+| M2 | Resolved | Independent recomputation (sklearn, raw node table, plain loops for ranking) of Adamic-Adar's group-matched test numbers matches the saved rows to 6 decimals: hard_active established 0.727082, newcomer 0.723725, macro 0.725403; rank_hard_active 0.727361 / 0.671458 / 0.699410. Every report has `prefer_newer` rows and labelled pooled numbers; positives-only cold-start tables appear only in appendices. |
+| M3 | Resolved, one inconsistency | Limitation in `docs/data_audit.md`, CLAUDE.md rule 8, validation-first activity section, all present; the validation numbers quoted (+0.021, 4/5 seeds) match `activity_diagnostic_paired.csv`. **Inconsistency:** see N9. |
+| M4 | Resolved, evidence untraceable | Decision log corrected inline; `node2vec_hadamard_sensitivity` rows exist (test random 0.901, macro hard_active 0.592). **Remaining:** see N4. |
+| M5 | Resolved | Both families have exactly 20 tests with the intended comparisons. An independent Holm implementation reproduces every adjusted p-value (max \|diff\| 0). PF − AA macro hard_active recomputed from independently seed-averaged scores: +0.073831, equal to the reported value. Seed-mean value reproduced (0.799161). Note: with 1,000 resamples the smallest attainable Holm p is 0.020, so most "significant" results sit at that floor (documented in decisions.md). |
+| m1 | Resolved for the listed items | All five annotated inline. **But new stale numbers were introduced elsewhere:** see N1. |
+| m2 | Resolved | "0.065–0.177" in the training log, matching the curves. |
+| m3 | Resolved | `report/gnn/run.log` is tracked; `scripts/node2vec_quality.py` writes `report/node2vec/quality.csv`. |
+| m4 | Resolved | No "seed-averaged CI" wording remains; headline values use `seed_mean_ci`; figure footnotes say "mean of per-seed CI endpoints". |
+| m5 | Resolved, weak guard | The 5 removed keys are gone and the 3 wired keys are read by the code. **But** see N5. |
+| m6 | Resolved | Rules 2 and 3 now match the code (spot-checked: `models.gnn.set_determinism`, `srand`, re-validation on import). |
+| m7 | Resolved, one gap | With no snapshot and no pages, `build()` raises a clear `FileNotFoundError`; the environment variable takes precedence. **Gap:** see N6. |
+| m8 | Resolved | Identity-checked cache plus `test_context_cache_never_stale`. |
+| m9 | Resolved | Explanation present. +0.042 is in `activity_diagnostic_paired.csv`; +0.033 is the pooled difference of `feature_models.csv` values (0.738 − 0.706). |
+| m10 | Resolved | Recorded in decisions.md. |
+
+Tests: `make test` 193 passed. A fresh clone of `a492e89` passes 143 tests, with 50 data-dependent tests skipped (run in the existing `linkpred` environment; the environment built from `environment.yml` was deleted at the owner's request).
+
+### New or remaining problems
+All are minor (docs, latent or workflow) except where noted. None changes a headline number.
+
+**N1 — Stale per-seed paired-test numbers in older decision entries (introduced by the remediation).**
+The per-seed paired tests were regenerated on the **macro** metric and against the **retrained**
+pair-focused model. The files the older entries cite now contain different comparisons, but these
+entries were not annotated:
+- `docs/decisions.md` line 420: "+0.107 over AA, 5/5 seeds". `feature_models_paired.csv` now holds only
+  the macro test, with mean +0.074 for the retrained model.
+- Line 426: "not robust (1/5 seeds)".
+- Line 433: "−0.003, worse in 3/5 seeds".
+- Line 492: "−0.126, 5/5 seeds". `gnn_paired.csv` GNN − pair-focused LightGBM is now macro, mean −0.159.
+- Lines 495–496: "+0.012, 5/5 seeds" and "+0.010, 2/5 seeds".
+
+The old values describe the shortcut-trained model on pooled metrics and are no longer in any results
+file. This is the same class of problem as m1. *Fix:* mark these entries as superseded and point to
+`final_comparison.md`.
+
+**N2 — Shortcut construction still in the GNN training code (M1, partly).** `scripts/run_gnn.py`
+lines 79 and 251 still call `training_pairs(..., active=True)` without `d2_only`. The saved models were
+deliberately not retrained, but any future Colab run would reproduce the shortcut, against CLAUDE.md
+rule 7. *Fix:* pass `d2_only=True` there, or make `active=True` imply distance-2 positives.
+
+**N3 — Headline table shows a shortcut-trained model without a caveat.** `results/final_comparison.md`
+lists `gnn_pair_focused_sage_structural (best GNN)` and the hybrid built on its out-of-fold scores, with
+no mention that this GNN was trained with the distance shortcut (0 occurrences of "shortcut"). The
+caveat exists only in `results/gnn.md` and `decisions.md`. *Fix:* label the GNN and hybrid rows in the
+headline report. (Whether the shortcut matters for the GNN's distance-2 conclusion is unknown without
+retraining; its gap to Adamic-Adar is −0.084 macro.)
+
+**N4 — Alignment evidence not traceable to a results file (M4, rule 3).** `results/node2vec.md` (the
+Hadamard sensitivity section) and `docs/decisions.md` quote "validation random ROC-AUC 0.905
+transferred vs 0.901 fitted within validation" and L1 "0.665". These came from the audit's scratch
+scripts; no results or report CSV contains them. *Fix:* add a small script that writes these
+diagnostics to `report/node2vec/`.
+
+**N5 — The config-key guard is name-based.** `test_every_config_key_is_read_by_code` only checks that
+each key's *name* appears quoted somewhere in `src/` or `scripts/`. Common names appear in unrelated
+places: `"lr"` in 5 files (e.g. `kv["lr"]` in `activity_diagnostic.py` parses search-row names), `"seed"`
+in 17, `"epochs"` in 3. A key can become dead again and still pass. *Fix:* check full key paths, e.g.
+by loading the config through a proxy that records accesses during a dry run.
+
+**N6 — Silent fallback when `LINKPRED_SNAPSHOT_PATH` points to a missing file.** `build()` falls back to
+`data/raw/openalex_pages` without a warning when the configured or env snapshot path does not exist. If
+stale pages exist, a different dataset would be built silently. *Fix:* raise, or at least warn, when an
+explicitly set path is missing.
+
+**N7 — `gnn_colab.csv` is not refreshed on re-import (workflow hazard).** `gnn_analysis.py` renames
+`gnn.csv` to `gnn_colab.csv` only if `gnn_colab.csv` does not exist yet. After a future
+`import_colab_results.py`, which rewrites `gnn.csv` with Colab rows, the analysis would keep the stale
+`gnn_colab.csv`, read the model list and seeds from it, and compare against old rows. *Fix:* have the
+import script write `gnn_colab.csv` directly.
+
+**N8 — Retrained pair-focused search chose a grid corner (open, documented).** The search picked 3
+leaves and min_child 300, the most regularised corner of the 24-config grid. The decision log records
+that the grid was deliberately not widened ("same search"). The optimum may lie outside the grid; this
+can only be settled on validation.
+
+**N9 — Newcomer decision rationale cites test counts (M3 rule).** The "rejected alternative" rationale in
+`docs/decisions.md` (around line 537) quotes test counts (281 of 1,684 negatives vs 585 of 1,684
+positives), although rule 8 says decisions must rest on validation. The validation counts exist in
+`results/baselines.csv` (231 of 1,432 vs 446 of 1,432) and support the same conclusion. *Fix:* quote
+validation first.
+
+### Bottom line
+Every finding was addressed. The headline results claimed after the remediation reproduce
+independently. One finding (M1) is only partly closed: the GNN training code still builds the shortcut
+training set, and the headline table does not label the shortcut-trained GNN. The remediation also
+introduced stale citations in older decision entries (N1) and an untraceable diagnostic (N4). No new
+leakage and no change to any headline number was found.
