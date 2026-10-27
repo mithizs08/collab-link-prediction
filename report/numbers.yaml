@@ -171,3 +171,8 @@ _defaults:
 "0.529": [{f: results/node2vec_sanity.csv, w: {metric: spearman_with_adamic_adar, model: node2vec_cosine, protocol: hard_active, split: test}}]
 "0.635": [{agg: mean, f: results/node2vec.csv, w: {metric: roc_auc, model: node2vec_cosine, protocol: hard_active, split: test, subset: macro}}]
 "0.675": [{agg: mean, f: results/node2vec.csv, w: {metric: roc_auc, model: node2vec, protocol: random, split: test, subset: all}}]
+# --- consistency fixes (2026-10-28) ---
+"0.016": [{f: results/final_pass_tests.csv, w: {metric: roc_auc_diff_p_value, model: lightgbm_pair_focused - logreg_pair_focused, protocol: hard_active, split: test}}]
+"0.38": [{f: results/final_pass_tests.csv, w: {metric: query_auc_diff_p_value, model: lightgbm_pair_focused - logreg_pair_focused, protocol: rank_hard_active, split: test}}]
+"-0.009": [{col: ci_low, f: results/final_pass_tests.csv, w: {metric: query_auc_diff, model: lightgbm_pair_focused - logreg_pair_focused, protocol: rank_hard_active, split: test}}]
+"+0.003": [{col: ci_high, f: results/final_pass_tests.csv, w: {metric: query_auc_diff, model: lightgbm_pair_focused - logreg_pair_focused, protocol: rank_hard_active, split: test}}]

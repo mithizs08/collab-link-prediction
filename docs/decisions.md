@@ -849,3 +849,14 @@ Each entry below resolves one audit finding; numbers are in the results files na
   0.955-0.987, 4 predictions); research-question provenance stated; telecom paragraph replaced by evaluation questions.
 - **References:** corrected details, all [VERIFY] tags removed after the author's check.
 - **Not done:** retraining the GNNs without the shortcut (listed as future work in README and report).
+
+## 2026-10-28 — Headline model stays the pre-specified pair-focused LightGBM
+- **Decision:** the pair-focused LightGBM remains the headline model, and the headline finding is stated as the
+  training-pair choice (distance-2 positives against activity-matched distance-2 negatives), not a learner. The
+  pair-focused logistic regression (test 0.808 / 0.796 against 0.799 / 0.792; LightGBM minus logistic regression
+  -0.008, raw p 0.016, and -0.003, raw p 0.38) is reported as an exploratory check, roughly tied with the LightGBM.
+  Tables mark the headline row instead of bolding it; the headline figure includes the logistic regression.
+- **Alternatives:** promote the logistic regression to headline (it scores slightly higher on hard_active).
+- **Reason:** the LightGBM was selected before the check; switching the headline after seeing test results would be
+  selection on test (rule 4). The differences are small, exploratory and uncorrected, so they do not show either
+  learner is better. Applies the fixes listed in `docs/consistency_check.md`.

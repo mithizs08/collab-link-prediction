@@ -54,6 +54,13 @@ def main():
     imp = pd.read_csv(Path("report/features/importance.csv"))
     sh = lambda m, p, sub, metric, split: val(si, model=m, protocol=p, subset=sub, metric=metric, split=split)
     pdd = pd.read_csv(Path("report/shap/partial_dependence_val.csv"))
+    # Final pass: a logistic regression on the pair-focused LightGBM's training pairs (exploratory, outside the
+    # Holm family). Explanations were not recomputed for it; it is cited only for scope and the newcomer comparison.
+    fc, lr = load("final_comparison.csv"), load("pf_logreg_exploratory.csv")
+    nwc = dict(split="test", protocol="hard_active", subset="newcomer_matched", metric="roc_auc")
+    pf_nw, lr_nw = val(fc, model=PF, **nwc), val(lr, model="logreg_pair_focused", **nwc)
+    mac = dict(split="test", protocol="hard_active", subset="macro", metric="roc_auc")
+    pf_mac, lr_mac = val(fc, model=PF, **mac), val(lr, model="logreg_pair_focused", **mac)
 
     def pdv(m, st, f, i):
         g = pdd[(pdd.model == m) & (pdd.set == st) & (pdd.feature == f)].sort_values("value")
@@ -71,7 +78,13 @@ def main():
            "`*_test.png`)._", "",
            "> **Explanations show what a model uses, not what causes collaborations.** A feature that a model relies on "
            "can be a proxy (for activity, team membership, or a sampling artefact of the evaluation), and correlated "
-           "features share credit arbitrarily.", ""]
+           "features share credit arbitrarily.", "",
+           "> **Scope.** \"Headline model\" means the pair-focused LightGBM, the model pre-specified as the headline "
+           "before the final-pass check. SHAP, the error analysis and the calibration below were run on it. A logistic "
+           "regression trained on the same pairs scores about the same (test macro hard_active "
+           f"{lr_mac:.3f} against {pf_mac:.3f}; exploratory, `results/pf_logreg_exploratory.csv`), so the gain comes "
+           "from the training pairs, not the learner. Its explanations were not computed; because the LightGBM is "
+           "additive (2-leaf trees), its drivers are likely similar, but that is not checked.", ""]
 
     # 1. what the models rely on
     out += ["## 1. What the models rely on (SHAP; `results/shap_importance.csv`, `figures/shap_*`)", "",
@@ -285,8 +298,10 @@ def main():
                      "newcomer − established, val / test": f"{dval:+.3f} / {nw - es:+.3f}"})
     out += ["**Newcomers (parked since Phase 5).** With group-matched negatives, no model does genuinely better on "
             "newcomer pairs: on test every model's newcomer score is at or below its established score, and the only "
-            "positive gap on validation (logistic regression, hard_active) does not repeat on test. The headline model is "
-            "also the best newcomer model (`results/final_comparison.csv`).", "",
+            "positive gap on validation (logistic regression, hard_active) does not repeat on test. Among the models in "
+            "`results/final_comparison.csv` the headline model has the highest newcomer score; the exploratory "
+            "pair-focused logistic regression, trained on the same pairs, scores higher on test newcomer pairs "
+            f"(hard_active {lr_nw:.3f} against {pf_nw:.3f}; `results/pf_logreg_exploratory.csv`).", "",
             md_table(pd.DataFrame(rows)), ""]
 
     # 5. calibration

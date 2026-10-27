@@ -36,13 +36,14 @@ OI = {"blue": "#0072B2", "orange": "#E69F00", "green": "#009E73", "purple": "#CC
       "red": "#D55E00", "grey": "#7F7F7F", "black": "#000000"}
 INK, INK2, GRID = "#111111", "#555555", "#DDDDDD"
 PF, GEN, AA = "lightgbm_pair_focused", "lightgbm", "adamic_adar"
+PF_LR = "logreg_pair_focused"  # exploratory final-pass check (results/pf_logreg_exploratory.csv), outside the Holm family
 GNN_PF, GNN_GEN = "gnn_pair_focused_sage_structural", "gnn_general_sage_text"
 plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8, "xtick.labelsize": 8,
                      "ytick.labelsize": 8, "legend.fontsize": 7.5, "figure.dpi": 100, "savefig.dpi": 300,
                      "axes.edgecolor": GRID, "axes.labelcolor": INK2, "xtick.color": INK2, "ytick.color": INK2,
                      "font.family": "DejaVu Sans"})
-LABEL = {"prefer_newer": "prefer-newer (reference)", AA: "Adamic-Adar", "jaccard": "Jaccard", "logreg": "logistic reg.",
-         GEN: "general LightGBM", PF: "pair-focused LightGBM", "two_stage": "two-stage", "node2vec": "node2vec",
+LABEL = {"prefer_newer": "prefer-newer (reference)", AA: "Adamic-Adar", "jaccard": "Jaccard", "logreg": "general logistic reg.",
+         GEN: "general LightGBM", PF: "pair-focused LightGBM (headline)", PF_LR: "pair-focused logistic reg. (expl.)", "two_stage": "two-stage", "node2vec": "node2vec",
          GNN_PF: "best GNN (shortcut-trained)", f"{PF}+{GNN_PF}": "hybrid (secondary)"}
 
 
@@ -78,14 +79,17 @@ def save(f, name):
 
 def fig1():
     fc, ts = pd.read_csv(RES / "final_comparison.csv"), pd.read_csv(RES / "two_stage.csv")
-    order = ["prefer_newer", AA, "jaccard", "node2vec", GNN_PF, "logreg", GEN, "two_stage", PF, f"{PF}+{GNN_PF}"]
+    lr = pd.read_csv(RES / "pf_logreg_exploratory.csv")
+    src = {"two_stage": ts, PF_LR: lr}
+    order = ["prefer_newer", AA, "jaccard", "node2vec", GNN_PF, "logreg", GEN, "two_stage", PF, PF_LR,
+             f"{PF}+{GNN_PF}"]
     f, axes = plt.subplots(1, 2, figsize=(W, 3.3), sharey=True)
     for ax, (p, metric, title) in zip(axes, (("hard_active", "roc_auc", "macro hard_active ROC-AUC"),
                                              ("rank_hard_active", "query_auc", "macro rank_hard_active query AUC"))):
         aa = pick(fc, model=AA, split="test", protocol=p, subset="macro", metric=metric).value
         for i, m in enumerate(order):
-            r = pick(ts if m == "two_stage" else fc, model=m, split="test", protocol=p, subset="macro", metric=metric)
-            col = OI["blue"] if m == PF else (OI["grey"] if m in ("prefer_newer",) else
+            r = pick(src.get(m, fc), model=m, split="test", protocol=p, subset="macro", metric=metric)
+            col = OI["blue"] if m in (PF, PF_LR) else (OI["grey"] if m in ("prefer_newer",) else
                                                OI["orange"] if m in (GNN_PF, f"{PF}+{GNN_PF}", "node2vec") else OI["black"])
             ax.errorbar(r.value, i, xerr=[[r.value - r.ci_low], [r.ci_high - r.value]], fmt="o", color=col,
                         markersize=4, capsize=2, linewidth=1)
@@ -96,9 +100,9 @@ def fig1():
         ax.set_xlim(0.5, 0.9)
         axstyle(ax, title)
     axes[0].invert_yaxis()
-    f.text(0.0, -0.04, "Test split (2025 predictions). Mean of 5 seeds with seed-mean bootstrap 95% CI (5,000 resamples); "
-           "dotted line = Adamic-Adar. Blue = headline model; orange = representation-learning models.",
-           fontsize=7, color=INK2)
+    note(f, "Test split (2025 predictions). Mean of 5 seeds with seed-mean bootstrap 95% CI (5,000 resamples); "
+           "dotted line = Adamic-Adar. Blue = trained on pair-focused pairs (LightGBM: pre-specified headline model; "
+           "logistic regression: exploratory, outside the Holm family); orange = representation-learning models.", -0.02)
     save(f, "fig1_headline.png")
 
 

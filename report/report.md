@@ -10,13 +10,14 @@ fontsize: 10pt
 We predict which pairs of University of Technology Sydney (UTS) researchers will co-author for the first time in the
 next year, using only the co-authorship graph and publications from before a cutoff. The main contribution is the
 evaluation. Under a leak-free temporal split with negatives that share a co-author and are both still publishing,
-and with scores computed separately for established and newcomer authors, the best model is a LightGBM trained on
-the same kind of pairs it is evaluated on. On the 2025 test year it reaches a macro ROC-AUC of 0.799 [0.781, 0.816]
-and a macro ranking AUC of 0.792 [0.780, 0.804] (validation year: 0.824 and 0.800). The validation-best heuristics
+and with scores computed separately for established and newcomer authors, the models that do best are trained on
+the same kind of pairs they are evaluated on. The pre-specified headline model, a LightGBM trained this way, reaches
+a macro ROC-AUC of 0.799 [0.781, 0.816] and a macro ranking AUC of 0.792 [0.780, 0.804] on the 2025 test year
+(validation year: 0.824 and 0.800). The validation-best heuristics
 score 0.725 (Adamic-Adar) and 0.716 (Jaccard); the gains are +0.074 and +0.077, both p < 0.01 (the smallest value
 this test can show), and they stay clear of zero when the bootstrap resamples authors instead of pairs. A logistic
-regression trained on the same pairs does at least as well (0.808), so the gain comes from choosing the training
-pairs, not from the learner. node2vec (0.561) and a graph neural network trained with a known flaw (0.640) score
+regression trained on the same pairs scores about the same (0.808 and 0.796; exploratory), so the gain comes from
+choosing the training pairs, not from the learner. node2vec (0.561) and a graph neural network trained with a known flaw (0.640) score
 below the heuristics. Text features add +0.023 beyond network structure. Three findings come from the evaluation
 itself: protocols that do not match negatives on publishing activity reward predicting who keeps publishing, pooled
 scores reward newcomer status, and a training set whose negatives are all at distance 2 teaches models a distance
@@ -24,11 +25,12 @@ shortcut, visible in a CPU replica of the graph neural network.
 
 **Two caveats come first.** (1) Two choices that define the headline protocol, matching negatives on activity and
 scoring within newcomer and established groups, were adopted after diagnostics on the test year, before a
-validation-first rule was in place; the test year is not a clean confirmation of those two choices, so validation
-numbers are reported beside test numbers throughout. (2) The headline protocol keeps only negatives whose authors
+validation-first rule was in place; the test year is not a clean confirmation of those two choices. Validation
+numbers are given beside test numbers in Table 1; most other numbers in this report are test-year only. (2) The headline protocol keeps only negatives whose authors
 both publish in the prediction year, which is known only afterwards. It measures pair signal given activity; a
 deployed recommender would need a shortlisting step first. A model of "both authors active" reaches a test ROC-AUC of
-0.881, but combining it with the pair model did not beat the general model (Section 7).
+0.881, but multiplying it with the pair-focused LightGBM did not beat a LightGBM trained against random pairs
+(Section 7).
 
 # 1. Introduction
 
@@ -122,9 +124,13 @@ it uses no pair information and shows how much a protocol rewards newcomer statu
 features in three blocks: structural (neighbourhood counts, Katz, degrees, distance, communities, shared institutions),
 temporal (career age, recent output, years since last work, recency-weighted common neighbours and Adamic-Adar) and
 text (cosine similarity of the authors' mean title and abstract embeddings, and of each author to the other's
-co-authors). Logistic regression and a general LightGBM are trained on train-split positives against random
-negatives. The **pair-focused LightGBM** is trained on distance-2 positives against activity-matched distance-2
-negatives from the train window, the same kind of pairs it is evaluated on. node2vec embeddings are aligned across
+co-authors). The **general** models, a general logistic regression and a general LightGBM, are trained on
+train-split positives against random negatives. The **pair-focused LightGBM** is trained on distance-2 positives
+against activity-matched distance-2 negatives from the train window, the same kind of pairs it is evaluated on. It
+is the **headline model**: it was fixed as the headline before the final checks, including the pair-focused logistic
+regression, and it stays the headline although it is not the highest-scoring model. The **pair-focused logistic
+regression**, trained on exactly the same pairs, was added in the final pass as an exploratory check outside the Holm
+family. node2vec embeddings are aligned across
 splits with orthogonal Procrustes. GraphSAGE and GAT models were trained on a GPU with a general and a pair-focused
 objective. A hybrid adds the best GNN's out-of-fold score to the pair-focused LightGBM.
 
@@ -147,9 +153,9 @@ the primary intervals, so the two can be compared directly.
 
 # 6. Results by research question
 
-![Headline results on the test year. Mean of 5 seeds with 95% intervals; the dotted line is Adamic-Adar.](../figures/final/fig1_headline.png){width=100%}
+![Headline results on the test year. Mean of 5 seeds with 95% intervals; the dotted line is Adamic-Adar. Blue: models trained on pair-focused pairs.](../figures/final/fig1_headline.png){width=100%}
 
-**RQ1: learned models against heuristics.** Table 1 and Figure 1 give the results. The pair-focused LightGBM beats
+**RQ1: learned models against heuristics.** Table 1 and Figure 1 give the results. The headline model beats
 the validation-best heuristic on both headline protocols: Adamic-Adar on macro `hard_active` by +0.074 [+0.058,
 +0.091], and Jaccard on macro `rank_hard_active` by +0.077 [+0.064, +0.091] (exploratory test; +0.093 [+0.081,
 +0.106] against Adamic-Adar), all p < 0.01 (the smallest value this test can show). It beats the general LightGBM by
@@ -157,10 +163,11 @@ the validation-best heuristic on both headline protocols: Adamic-Adar on macro `
 [+0.009, +0.044] for the general LightGBM.
 
 *Is it the model or the training pairs?* An exploratory logistic regression trained on exactly the pair-focused
-LightGBM's training pairs scores 0.808 on `hard_active` and 0.796 on `rank_hard_active` (validation 0.831 and 0.803),
-slightly above the LightGBM (difference -0.008 [-0.015, -0.002] on `hard_active`, -0.003 on `rank_hard_active`). The
-pair-focused LightGBM is also additive (2-leaf trees, Section 8). The gain comes from training on the same kind of
-pairs as the evaluation, not from a more flexible learner.
+LightGBM's training pairs scores 0.808 on `hard_active` and 0.796 on `rank_hard_active` (validation 0.831 and 0.803).
+LightGBM minus logistic regression is -0.008 [-0.015, -0.002] on `hard_active` (raw p 0.016) and -0.003 [-0.009,
++0.003] on `rank_hard_active` (raw p 0.38); both are exploratory and outside the Holm family. The two learners are
+roughly tied, and the pair-focused LightGBM is additive anyway (2-leaf trees, Section 8). The gain comes from
+training on the same kind of pairs as the evaluation and is not specific to LightGBM.
 
 *Clustered intervals.* Resampling authors instead of pairs widens the intervals by a factor of 1.89 to 2.08 on test.
 The headline gains stay clear of zero: pair-focused LightGBM against Adamic-Adar +0.074 [+0.044, +0.106] and +0.093
@@ -176,7 +183,8 @@ random pairs with ROC-AUC 0.915 on test and correlates 0.529 with Adamic-Adar on
 scores 0.635 on macro `hard_active`, above the reference. The weak number comes from the classifier on the L1 edge
 operator, which validation selected but which reaches only 0.675 even on random pairs. The GNN's ceiling is unknown
 because it was not retrained after the shortcut was found. The hybrid adds +0.009 [+0.005, +0.014] over the
-pair-focused LightGBM, a small gain from a shortcut-trained model, and we treat it as secondary.
+pair-focused LightGBM, a small gain from a shortcut-trained model, and we treat it as secondary: its 0.808 equals the
+pair-focused logistic regression's, so the GNN adds no more than changing the learner does.
 
 | Model | macro hard_active ROC-AUC, val / test | macro rank_hard_active query AUC, val / test |
 |---|---|---|
@@ -185,13 +193,13 @@ pair-focused LightGBM, a small gain from a shortcut-trained model, and we treat 
 | Jaccard | 0.692 / 0.691 | 0.729 / 0.716 |
 | logistic regression (general) | 0.782 / 0.763 | 0.767 / 0.763 |
 | general LightGBM | 0.766 / 0.751 | 0.761 / 0.756 |
-| pair-focused LightGBM | **0.824 / 0.799** | **0.800 / 0.792** |
+| pair-focused LightGBM (pre-specified headline model) | 0.824 / 0.799 | 0.800 / 0.792 |
 | pair-focused logistic regression (exploratory) | 0.831 / 0.808 | 0.803 / 0.796 |
 | node2vec | 0.580 / 0.561 | 0.579 / 0.572 |
 | best GNN (shortcut-trained) | 0.637 / 0.640 | 0.610 / 0.619 |
 | hybrid (secondary) | 0.828 / 0.808 | 0.804 / 0.795 |
 
-: Validation (2024) / test (2025) results, mean of 5 seeds for learned models.
+: Validation (2024) / test (2025) results, mean of 5 seeds for learned models. The pre-specified headline row is marked; it is not the highest-scoring row. The pair-focused logistic regression is exploratory.
 
 An AUC of 0.80 means that in about one in five comparisons between a future collaborator and an active
 non-collaborator at the same distance, the model ranks them the wrong way round. That is useful for ordering
@@ -244,7 +252,10 @@ pair signal jointly; the product of two separately trained models loses that int
 
 ![Left: shortcut check per model (above 0.5 means far non-collaborators are ranked above near collaborators). Right: change in the GNN logit when every path through a shared co-author is removed (validation).](../figures/final/fig5_shortcut.png){width=100%}
 
-**What the models use.** We computed exact TreeSHAP values for seed-0 models. The pair-focused LightGBM uses 2-leaf
+**What the models use.** All explanations, the error analysis and the calibration below use the headline model
+(the pair-focused LightGBM). They were not repeated for the pair-focused logistic regression, which scores about the
+same; because the LightGBM is additive, its drivers are likely similar, but this was not checked. We computed exact
+TreeSHAP values for seed-0 models. The pair-focused LightGBM uses 2-leaf
 trees, so it is additive and has no interactions. Grouped by what the features measure (test), recency-weighted
 shared structure takes 0.281 of mean absolute SHAP, text similarity 0.281, plain structure 0.248 and author activity
 or career 0.190. Filed by code block it would look like a "temporal" model (0.471), because the recency-weighted
@@ -290,7 +301,7 @@ only.
 
 # 9. Limitations
 
-- **Test-set reuse** (see the caveats after the abstract). Validation numbers are reported beside test throughout;
+- **Test-set reuse** (see the caveats after the abstract). Validation numbers are given beside test in Table 1;
   all decisions after the validation-first rule used validation only.
 - **Disambiguation.** The split-profile flag is a heuristic and also catches correctly identified authors who share a
   name. Removing all flagged IDs reduces the test positives from 2,533 to 1,546. The main result holds on that

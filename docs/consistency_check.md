@@ -2,6 +2,11 @@
 
 Date: 2026-10-28. Report only; nothing in `README.md`, `report/report.md` or any other file was changed.
 
+**Status (2026-10-28): all fixes below were applied** (README, report, `scripts/final_summary.py` →
+`results/final_summary.md`, `scripts/phase8_report.py` → `docs/explainability.md`, `scripts/final_figures.py` →
+`figures/final/fig1_headline.png`); see the decision log entry of the same date. Line numbers refer to the files
+before the fixes.
+
 **What is being checked.** The final pass found that a logistic regression trained on the same distance-2,
 activity-matched pairs as the pair-focused LightGBM scores at least as well. The numbers below are from
 `results/final_comparison.csv`, `results/pf_logreg_exploratory.csv` and `results/final_pass_tests.csv`.
