@@ -21,8 +21,15 @@ Reviewer notes that motivate it: `docs/reviewer_pass.md`.
 - Step 4: new tokens in report/numbers.yaml; python scripts/check_numbers.py passes (264 occurrences).
 - Decision entry "Final pass" in docs/decisions.md; make final-pass target.
 
+- make test: 197 passed. Fresh clone: 147 passed, 50 skipped; number check passes in the clone.
+- Committed locally as fa271ea (plus this progress update).
+
 ## In progress
-- make test; fresh-clone check; commit; push.
+- Push: `git push origin main` hung waiting on `git credential-osxkeychain get` (a macOS Keychain approval;
+  2026-10-28). Run `git push origin main` from a terminal and approve the Keychain prompt if it appears.
+
+## Next
+- Nothing else in the final pass.
 
 ## Next
 - Step 1 wording (README, report), step 3 references, step 4 numbers.yaml + check_numbers + make test + fresh clone + push.
