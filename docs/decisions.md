@@ -830,3 +830,22 @@ Each entry below resolves one audit finding; numbers are in the results files na
   panel says otherwise).
 - **Citations:** every citation in `report/report.md` is marked [VERIFY] for the author to check.
 - **PDF:** not built (no PDF engine installed); command in `report/README_build.md`.
+
+## 2026-10-28 — Final pass before the repo goes public (reviewer notes: `docs/reviewer_pass.md`)
+- **Exploratory checks, validation first then test** (`scripts/final_pass_checks.py`; outside the Holm family):
+  - *Pair-focused logistic regression* on exactly the pair-focused LightGBM's training pairs: validation 0.831 / 0.803,
+    test 0.808 / 0.796 (macro hard_active / rank_hard_active), at least as good as the LightGBM. Conclusion stated in
+    README and report: the gain comes from the training pairs, not the learner.
+  - *Gain against the validation-best heuristic* (Adamic-Adar on hard_active, Jaccard on rank_hard_active, from
+    `report.val_best`): reported as the main comparison, Adamic-Adar kept as a named comparator.
+  - *node2vec sanity:* cosine on random pairs 0.915 (test), Spearman 0.529 with Adamic-Adar; the weak reported number
+    is the validation-selected L1-operator classifier, not broken embeddings.
+  - *Author-clustered bootstrap* (Poisson author weights, pair weight = product): intervals 1.89-2.08x wider on test;
+    headline gains hold; Jaccard - Adamic-Adar loses significance on both metrics, so the heuristics are described as
+    tied. The independent-pairs version of the same estimator reproduces the primary intervals.
+- **Wording:** p-values at the resolution floor are written "p < 0.01 (the smallest value this test can show)"; the
+  test-reuse caveat and the activity condition moved to the top of README and report; representation-learning claims
+  narrowed to node2vec and the shortcut-trained GNN; GNN explanation described as a CPU replica (score correlation
+  0.955-0.987, 4 predictions); research-question provenance stated; telecom paragraph replaced by evaluation questions.
+- **References:** corrected details, all [VERIFY] tags removed after the author's check.
+- **Not done:** retraining the GNNs without the shortcut (listed as future work in README and report).

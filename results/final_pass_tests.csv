@@ -1,0 +1,37 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+logreg_pair_focused - adamic_adar,val,hard_active,macro,hard_active,-1,roc_auc_diff,0.08987920147077799,0.07140581463731117,0.10856104509569031
+logreg_pair_focused - adamic_adar,val,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+logreg_pair_focused - adamic_adar,val,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.08065624057503684,0.06652553714750614,0.09482903746704119
+logreg_pair_focused - adamic_adar,val,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused - logreg_pair_focused,val,hard_active,macro,hard_active,-1,roc_auc_diff,-0.006197064666650931,-0.012859051848032387,0.0005558616767702344
+lightgbm_pair_focused - logreg_pair_focused,val,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0704,,
+lightgbm_pair_focused - logreg_pair_focused,val,rank_hard_active,macro,hard_active,-1,query_auc_diff,-0.002714932180878593,-0.009823623459658945,0.004113061095195308
+lightgbm_pair_focused - logreg_pair_focused,val,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.4448,,
+logreg_pair_focused - logreg,val,hard_active,macro,hard_active,-1,roc_auc_diff,0.048906935968986875,0.03747907137884915,0.060535897075092444
+logreg_pair_focused - logreg,val,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+logreg_pair_focused - logreg,val,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.035503737002539726,0.02593593344325396,0.04475432759223557
+logreg_pair_focused - logreg,val,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused - adamic_adar (validation-best heuristic for hard_active),val,hard_active,macro,hard_active,-1,roc_auc_diff,0.08368213680412706,0.06788145595174445,0.10017077240816907
+lightgbm_pair_focused - adamic_adar (validation-best heuristic for hard_active),val,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused - jaccard (validation-best heuristic for rank_hard_active),val,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.07099599793310674,0.056263426323326995,0.08492487586951931
+lightgbm_pair_focused - jaccard (validation-best heuristic for rank_hard_active),val,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+jaccard - adamic_adar,val,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.006945310461051513,-0.008934057419919853,0.022757201757140536
+jaccard - adamic_adar,val,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.4012,,
+logreg_pair_focused - adamic_adar,test,hard_active,macro,hard_active,-1,roc_auc_diff,0.0826305724220402,0.06395199375186003,0.10061973728676
+logreg_pair_focused - adamic_adar,test,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+logreg_pair_focused - adamic_adar,test,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.09618231111001774,0.08343762222653917,0.10875485533739584
+logreg_pair_focused - adamic_adar,test,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused - logreg_pair_focused,test,hard_active,macro,hard_active,-1,roc_auc_diff,-0.00831915325882493,-0.014992436211788243,-0.0015202914580341002
+lightgbm_pair_focused - logreg_pair_focused,test,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0156,,
+lightgbm_pair_focused - logreg_pair_focused,test,rank_hard_active,macro,hard_active,-1,query_auc_diff,-0.002764678384749919,-0.008805425002071699,0.0034387496750578014
+lightgbm_pair_focused - logreg_pair_focused,test,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.3816,,
+logreg_pair_focused - logreg,test,hard_active,macro,hard_active,-1,roc_auc_diff,0.04477403665535906,0.03236940245622068,0.05713644980298179
+logreg_pair_focused - logreg,test,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+logreg_pair_focused - logreg,test,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.03230688005424809,0.02224866831104862,0.042870398519014356
+logreg_pair_focused - logreg,test,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused - adamic_adar (validation-best heuristic for hard_active),test,hard_active,macro,hard_active,-1,roc_auc_diff,0.07431141916321526,0.058467390688793676,0.09060702890872867
+lightgbm_pair_focused - adamic_adar (validation-best heuristic for hard_active),test,hard_active,macro,hard_active,-1,roc_auc_diff_p_value,0.0002,,
+lightgbm_pair_focused - jaccard (validation-best heuristic for rank_hard_active),test,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.07731541361105487,0.06407524926753816,0.09061749643650788
+lightgbm_pair_focused - jaccard (validation-best heuristic for rank_hard_active),test,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0002,,
+jaccard - adamic_adar,test,rank_hard_active,macro,hard_active,-1,query_auc_diff,0.016102219114212946,0.0022568169377194442,0.029701929764081165
+jaccard - adamic_adar,test,rank_hard_active,macro,hard_active,-1,query_auc_diff_p_value,0.0192,,

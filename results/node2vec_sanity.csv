@@ -1,0 +1,7 @@
+model,split,protocol,subset,negative_type,seed,metric,value,ci_low,ci_high
+node2vec_cosine,val,hard_active,all,hard_active,-1,spearman_with_adamic_adar,0.5322180440252356,,
+node2vec_cosine,val,hard_active,all,hard_active,-1,spearman_with_common_neighbors,0.567709985176032,,
+node2vec_cosine,val,random,all,random,-1,roc_auc_seed0,0.9149493245802298,,
+node2vec_cosine,test,hard_active,all,hard_active,-1,spearman_with_adamic_adar,0.5293631746520299,,
+node2vec_cosine,test,hard_active,all,hard_active,-1,spearman_with_common_neighbors,0.5644472600488294,,
+node2vec_cosine,test,random,all,random,-1,roc_auc_seed0,0.9145125636505353,,

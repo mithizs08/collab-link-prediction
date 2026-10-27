@@ -2,7 +2,7 @@ PYTHON ?= python
 CONFIG ?= configs/default.yaml
 RUN = PYTHONPATH=src $(PYTHON) -m linkpred.cli --config $(CONFIG)
 
-.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis phase7 phase8 final
+.PHONY: help data splits baselines features train evaluate report test all clean-results gnn-bundle gnn-dry gnn-import gnn-analysis phase7 phase8 final-pass final
 
 help:
 	@echo "Targets: data splits baselines features train evaluate report test all"
@@ -56,6 +56,9 @@ phase8:      ## explainability + error analysis (validation first, then test) ->
 	PYTHONPATH=src $(PYTHON) scripts/phase8_calibration.py --config $(CONFIG) --splits val test
 	PYTHONPATH=src $(PYTHON) scripts/final_comparison.py --holm-only
 	PYTHONPATH=src $(PYTHON) scripts/phase8_report.py
+
+final-pass:  ## reviewer checks (exploratory): pair-focused LR, validation-best gains, node2vec sanity, clustered bootstrap
+	PYTHONPATH=src $(PYTHON) scripts/final_pass_checks.py --config $(CONFIG) --splits val test
 
 final:       ## primary comparison (34-test Holm family incl. phase7 tests, 5,000 resamples) + results/final_summary.md
 	PYTHONPATH=src $(PYTHON) scripts/final_comparison.py

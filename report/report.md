@@ -12,25 +12,37 @@ next year, using only the co-authorship graph and publications from before a cut
 evaluation. Under a leak-free temporal split with negatives that share a co-author and are both still publishing,
 and with scores computed separately for established and newcomer authors, the best model is a LightGBM trained on
 the same kind of pairs it is evaluated on. On the 2025 test year it reaches a macro ROC-AUC of 0.799 [0.781, 0.816]
-and a macro ranking AUC of 0.792 [0.780, 0.804], against 0.725 and 0.699 for the Adamic-Adar heuristic (differences
-+0.074 and +0.093, Holm-corrected p = 0.0068). node2vec (0.561) and the best graph neural network (0.640) score below
-Adamic-Adar. Text features add +0.023 beyond network structure. Three findings come from the evaluation itself:
-protocols that do not match negatives on publishing activity reward predicting who keeps publishing, pooled scores
-reward newcomer status, and a training set whose negatives are all at distance 2 teaches models a distance shortcut,
-which explanations show directly in a graph neural network.
+and a macro ranking AUC of 0.792 [0.780, 0.804] (validation year: 0.824 and 0.800). The validation-best heuristics
+score 0.725 (Adamic-Adar) and 0.716 (Jaccard); the gains are +0.074 and +0.077, both p < 0.01 (the smallest value
+this test can show), and they stay clear of zero when the bootstrap resamples authors instead of pairs. A logistic
+regression trained on the same pairs does at least as well (0.808), so the gain comes from choosing the training
+pairs, not from the learner. node2vec (0.561) and a graph neural network trained with a known flaw (0.640) score
+below the heuristics. Text features add +0.023 beyond network structure. Three findings come from the evaluation
+itself: protocols that do not match negatives on publishing activity reward predicting who keeps publishing, pooled
+scores reward newcomer status, and a training set whose negatives are all at distance 2 teaches models a distance
+shortcut, visible in a CPU replica of the graph neural network.
+
+**Two caveats come first.** (1) Two choices that define the headline protocol, matching negatives on activity and
+scoring within newcomer and established groups, were adopted after diagnostics on the test year, before a
+validation-first rule was in place; the test year is not a clean confirmation of those two choices, so validation
+numbers are reported beside test numbers throughout. (2) The headline protocol keeps only negatives whose authors
+both publish in the prediction year, which is known only afterwards. It measures pair signal given activity; a
+deployed recommender would need a shortlisting step first. A model of "both authors active" reaches a test ROC-AUC of
+0.881, but combining it with the pair model did not beat the general model (Section 7).
 
 # 1. Introduction
 
 Research offices, funders and researchers use collaboration recommendations to find partners for grants, to plan
 hiring and to spot groups that could work together. Whether such recommendations are useful depends on how well new
 collaborations can be predicted, and on whether reported accuracy reflects the task or the evaluation. Link
-prediction in co-authorship networks is a standard benchmark [Liben-Nowell and Kleinberg 2007] [VERIFY], and simple
-neighbourhood scores such as Adamic-Adar remain hard to beat [Adamic and Adar 2003] [VERIFY]. At the same time,
-evaluation choices such as random splits and easy random negatives can inflate scores [Yang et al. 2015] [VERIFY];
-[Li et al. 2023] [VERIFY].
+prediction in co-authorship networks is a standard benchmark [Liben-Nowell and Kleinberg 2007], and simple
+neighbourhood scores such as Adamic-Adar remain hard to beat [Adamic and Adar 2003]. At the same time,
+evaluation choices such as random splits and easy random negatives can inflate scores [Yang et al. 2015];
+[Li et al. 2023].
 
-We study one institution, UTS, using OpenAlex data from 2015 to 2025 [Priem et al. 2022] [VERIFY]. Three research
-questions were fixed in the project plan before any data was seen:
+We study one institution, UTS, using OpenAlex data from 2015 to 2025 [Priem et al. 2022]. Three research questions
+were set in the project plan before any data work began. They entered the repository in Phase 7; before that, a
+reconstructed set was briefly recorded, and it is marked as superseded in the decision log:
 
 1. **RQ1.** How much do learned models (GNNs, embeddings, feature models) improve over simple graph heuristics for
    predicting new collaborations?
@@ -44,24 +56,24 @@ research questions (Section 7).
 # 2. Related work
 
 **Heuristics.** Liben-Nowell and Kleinberg framed link prediction in co-authorship networks and compared
-neighbourhood and path scores [Liben-Nowell and Kleinberg 2007] [VERIFY]. Adamic-Adar weights common neighbours by the
-inverse log of their degree [Adamic and Adar 2003] [VERIFY]; resource allocation uses the inverse degree [Zhou et al.
-2009] [VERIFY]; the Katz index counts paths of all lengths with decaying weights [Katz 1953] [VERIFY]. Co-authorship
-networks are known to be highly clustered, which is why common-neighbour scores work well [Newman 2001] [VERIFY].
+neighbourhood and path scores [Liben-Nowell and Kleinberg 2007]. Adamic-Adar weights common neighbours by the
+inverse log of their degree [Adamic and Adar 2003]; resource allocation uses the inverse degree [Zhou et al.
+2009]; the Katz index counts paths of all lengths with decaying weights [Katz 1953]. Co-authorship
+networks are known to be highly clustered, which is why common-neighbour scores work well [Newman 2001].
 
-**Learned representations.** node2vec learns node embeddings from biased random walks [Grover and Leskovec 2016] [VERIFY]. GraphSAGE [Hamilton et al. 2017] [VERIFY] and graph attention networks [Velickovic et al. 2018] [VERIFY]
+**Learned representations.** node2vec learns node embeddings from biased random walks [Grover and Leskovec 2016]. GraphSAGE [Hamilton et al. 2017] and graph attention networks [Velickovic et al. 2018]
 aggregate neighbour features and apply to unseen graphs. We use gradient-boosted trees as implemented in LightGBM
-[Ke et al. 2017] [VERIFY] for engineered pair features.
+[Ke et al. 2017] for engineered pair features.
 
-**Explanations and statistics.** SHAP attributes a prediction to features using Shapley values [Lundberg and Lee 2017] [VERIFY], with an exact algorithm for tree ensembles [Lundberg et al. 2020] [VERIFY]. For graph models we use
-GNNExplainer [Ying et al. 2019] [VERIFY] and integrated gradients [Sundararajan et al. 2017] [VERIFY]. Confidence
-intervals use the bootstrap [Efron and Tibshirani 1993] [VERIFY]; multiple comparisons are corrected with Holm's
-procedure [Holm 1979] [VERIFY]; probability calibration uses Platt scaling [Platt 1999] [VERIFY].
+**Explanations and statistics.** SHAP attributes a prediction to features using Shapley values [Lundberg and Lee 2017], with an exact algorithm for tree ensembles [Lundberg et al. 2020]. For graph models we use
+GNNExplainer [Ying et al. 2019] and integrated gradients [Sundararajan et al. 2017]. Confidence
+intervals use the bootstrap [Efron and Tibshirani 1993]; multiple comparisons are corrected with Holm's
+procedure [Holm 1979]; probability calibration uses Platt scaling [Platt 1999].
 
 **Evaluation pitfalls.** Yang et al. show that link-prediction results depend strongly on how test pairs and negatives
-are sampled and on temporal leakage [Yang et al. 2015] [VERIFY]. Li et al. report that common GNN link-prediction
+are sampled and on temporal leakage [Yang et al. 2015]. Li et al. report that common GNN link-prediction
 benchmarks use easy negatives and inconsistent settings, and that harder, more realistic negatives change model
-rankings [Li et al. 2023] [VERIFY]. Our protocols follow this line and add two controls we did not find in that
+rankings [Li et al. 2023]. Our protocols follow this line and add two controls we did not find in that
 work: matching negatives on publishing activity in the prediction year, and scoring newcomer and established
 authors separately.
 
@@ -122,35 +134,64 @@ All hyperparameters, negative-mix choices and early stopping use the validation 
 seeds; values are the mean over seeds with a seed-mean bootstrap 95% interval. The primary test for each comparison is
 one paired bootstrap on seed-averaged scores with 5,000 resamples, and all primary comparisons form one family of 34
 tests corrected with Holm's procedure. The family was extended in steps, each time in the decision log before the new
-comparison was run on test. With 5,000 resamples the smallest attainable raw p is 0.0002, so the smallest attainable
-Holm-adjusted p in a family of 34 is 0.0068.
+comparison was run on test. With 5,000 resamples and 34 tests, the smallest Holm-adjusted value the procedure can
+show is 0.0068; results at that floor are written as p < 0.01 (the smallest value this test can show). Gains are
+reported against the validation-best heuristic for each protocol (Adamic-Adar on `hard_active`, Jaccard on
+`rank_hard_active`), with Adamic-Adar kept as a named comparator throughout.
+
+Pairs share authors, so pair-level resampling treats dependent observations as independent. As a sensitivity
+analysis (exploratory, outside the family) we repeat the headline comparisons with an author-clustered bootstrap:
+each resample gives every author a Poisson(1) weight and each pair the product of its two authors' weights (for
+ranking, each query the product of its positive pair's weights). The same estimator with weights per pair reproduces
+the primary intervals, so the two can be compared directly.
 
 # 6. Results by research question
 
 ![Headline results on the test year. Mean of 5 seeds with 95% intervals; the dotted line is Adamic-Adar.](../figures/final/fig1_headline.png){width=100%}
 
-**RQ1: learned models against heuristics.** Table 1 and Figure 1 give the test results. The pair-focused LightGBM is
-the best model. It beats Adamic-Adar by +0.074 [+0.058, +0.091] on macro `hard_active` and +0.093 [+0.081, +0.106] on
-macro `rank_hard_active` (Holm p = 0.0068 for both), and it beats the general LightGBM by +0.048. The general feature
-models gain much less over the heuristic: +0.038 for logistic regression and +0.027 [+0.009, +0.044] for the general
-LightGBM. Representation learning did not help. node2vec scores 0.561 and the best GNN 0.640, both significantly below
-Adamic-Adar. The GNN was trained with the distance shortcut described in Section 7, so its ceiling is unknown. The
-hybrid adds +0.009 [+0.005, +0.014] over the pair-focused LightGBM, a small gain from a shortcut-trained model, and we
-treat it as secondary.
+**RQ1: learned models against heuristics.** Table 1 and Figure 1 give the results. The pair-focused LightGBM beats
+the validation-best heuristic on both headline protocols: Adamic-Adar on macro `hard_active` by +0.074 [+0.058,
++0.091], and Jaccard on macro `rank_hard_active` by +0.077 [+0.064, +0.091] (exploratory test; +0.093 [+0.081,
++0.106] against Adamic-Adar), all p < 0.01 (the smallest value this test can show). It beats the general LightGBM by
++0.048. The general feature models gain much less over the heuristic: +0.038 for logistic regression and +0.027
+[+0.009, +0.044] for the general LightGBM.
 
-| Model | macro hard_active ROC-AUC | macro rank_hard_active query AUC |
+*Is it the model or the training pairs?* An exploratory logistic regression trained on exactly the pair-focused
+LightGBM's training pairs scores 0.808 on `hard_active` and 0.796 on `rank_hard_active` (validation 0.831 and 0.803),
+slightly above the LightGBM (difference -0.008 [-0.015, -0.002] on `hard_active`, -0.003 on `rank_hard_active`). The
+pair-focused LightGBM is also additive (2-leaf trees, Section 8). The gain comes from training on the same kind of
+pairs as the evaluation, not from a more flexible learner.
+
+*Clustered intervals.* Resampling authors instead of pairs widens the intervals by a factor of 1.89 to 2.08 on test.
+The headline gains stay clear of zero: pair-focused LightGBM against Adamic-Adar +0.074 [+0.044, +0.106] and +0.093
+[+0.070, +0.118]; against Jaccard on ranking +0.077 [+0.052, +0.104]. The small heuristic differences do not survive:
+Jaccard against Adamic-Adar becomes -0.034 [-0.078, +0.009] on `hard_active` and +0.016 [-0.012, +0.047] on
+`rank_hard_active`, so the heuristics should be treated as tied.
+
+*Representation learning,* as tested here, did not help, but the test is narrow: node2vec and a GNN trained with the
+distance shortcut described in Section 7. node2vec scores 0.561 and the GNN 0.640, both significantly below
+Adamic-Adar. node2vec even scores below the `prefer-newer` reference (0.578), which uses no pair information. We
+checked for a bug: the embeddings themselves are sound (their raw cosine similarity separates collaborators from
+random pairs with ROC-AUC 0.915 on test and correlates 0.529 with Adamic-Adar on `hard_active` pairs), and the cosine alone
+scores 0.635 on macro `hard_active`, above the reference. The weak number comes from the classifier on the L1 edge
+operator, which validation selected but which reaches only 0.675 even on random pairs. The GNN's ceiling is unknown
+because it was not retrained after the shortcut was found. The hybrid adds +0.009 [+0.005, +0.014] over the
+pair-focused LightGBM, a small gain from a shortcut-trained model, and we treat it as secondary.
+
+| Model | macro hard_active ROC-AUC, val / test | macro rank_hard_active query AUC, val / test |
 |---|---|---|
-| prefer-newer (reference) | 0.578 | 0.551 |
-| Adamic-Adar | 0.725 | 0.699 |
-| Jaccard | 0.691 | 0.716 |
-| logistic regression | 0.763 | 0.763 |
-| general LightGBM | 0.751 | 0.756 |
-| pair-focused LightGBM | **0.799** | **0.792** |
-| node2vec | 0.561 | 0.572 |
-| best GNN (shortcut-trained) | 0.640 | 0.619 |
-| hybrid (secondary) | 0.808 | 0.795 |
+| prefer-newer (reference) | 0.576 / 0.578 | 0.561 / 0.551 |
+| Adamic-Adar | 0.741 / 0.725 | 0.722 / 0.699 |
+| Jaccard | 0.692 / 0.691 | 0.729 / 0.716 |
+| logistic regression (general) | 0.782 / 0.763 | 0.767 / 0.763 |
+| general LightGBM | 0.766 / 0.751 | 0.761 / 0.756 |
+| pair-focused LightGBM | **0.824 / 0.799** | **0.800 / 0.792** |
+| pair-focused logistic regression (exploratory) | 0.831 / 0.808 | 0.803 / 0.796 |
+| node2vec | 0.580 / 0.561 | 0.579 / 0.572 |
+| best GNN (shortcut-trained) | 0.637 / 0.640 | 0.610 / 0.619 |
+| hybrid (secondary) | 0.828 / 0.808 | 0.804 / 0.795 |
 
-: Test results (2025 predictions), mean of 5 seeds for learned models.
+: Validation (2024) / test (2025) results, mean of 5 seeds for learned models.
 
 An AUC of 0.80 means that in about one in five comparisons between a future collaborator and an active
 non-collaborator at the same distance, the model ranks them the wrong way round. That is useful for ordering
@@ -160,7 +201,7 @@ candidates, not for predicting individual collaborations.
 
 **RQ2: topical signals.** We trained the pair-focused LightGBM on structural features only, on structural plus text,
 and on all features, with the same parameters (Figure 2). Adding the four text features raises macro `hard_active`
-from 0.754 to 0.777 (+0.023 [+0.013, +0.033], Holm p = 0.0068) and macro `rank_hard_active` from 0.740 to 0.767
+from 0.754 to 0.777 (+0.023 [+0.013, +0.033], p < 0.01, the smallest value this test can show) and macro `rank_hard_active` from 0.740 to 0.767
 (+0.027). Validation shows the same direction. The gain holds in both groups for ranking and for established pairs
 on `hard_active`; for newcomer pairs on `hard_active` it is +0.019 [+0.002, +0.036], not significant after correction
 (Holm p = 0.0536). Adding the temporal block on top adds a further +0.022. An exploratory run that adds the blocks in
@@ -194,7 +235,7 @@ after retraining on distance-2 positives the same check gives 0.015. The best GN
 problem was found and was not retrained; its check is 0.775 (Figure 4).
 
 **Two-stage model.** A model of the form P(both authors active) times P(collaborate given both active) scores 0.854
-on pooled `hard` against 0.864 for the general LightGBM (-0.010 [-0.016, -0.005], Holm p = 0.0068), although its
+on pooled `hard` against 0.864 for the general LightGBM (-0.010 [-0.016, -0.005], p < 0.01), although its
 activity component is accurate on its own task (test activity ROC-AUC 0.881). Calibrating both components on
 training-split out-of-fold predictions does not close the gap (-0.013). The general model learns activity and the
 pair signal jointly; the product of two separately trained models loses that interaction.
@@ -215,10 +256,13 @@ activity only to rank within them.
 
 ![SHAP discrimination by feature group: ROC-AUC of each group's summed SHAP contribution used as a score (test).](../figures/final/fig4_attribution.png){width=100%}
 
-**The shortcut, seen directly.** No GNN weights were saved during GPU training, so we retrained both GNNs on CPU from
-their saved configurations (validation score correlation with the original models 0.987 and 0.955). For the
-pair-focused GNN, removing every path through a shared co-author raises the score of its confident predictions
-(+0.71, +0.74, +0.77 and +0.54 in logit): it treats a shared co-author as evidence against a link. Its most confident
+**The shortcut, seen in a CPU replica.** No GNN weights were saved during GPU training, so we retrained both GNNs on
+CPU from their saved configurations. The replicas are close but not identical: their validation scores correlate
+0.955 to 0.987 with the evaluated models, and the replica of the pair-focused GNN has a validation shortcut check of
+0.780, consistent with the 0.775 of the evaluated model on test. In that replica, removing every path through a
+shared co-author raised the score of each of the 4 most confident predictions we examined (2 true and 2 false
+positives; +0.71, +0.74, +0.77 and +0.54 in logit): it treats a shared co-author as evidence against a link. Four
+predictions illustrate the mechanism; the shortcut check measures its extent. Its most confident
 validation predictions are disconnected pairs with no common neighbour (logits 8.2 and 7.8, against 0.89 for its best
 true positive). For the general GNN, the same deletion lowers or leaves the score (-0.50 to -0.00). GNNExplainer masks
 were close to uniform and did not support conclusions; integrated gradients and edge deletion did.
@@ -246,13 +290,12 @@ only.
 
 # 9. Limitations
 
-- **Test-set reuse.** Two design changes (activity matching and newcomer-matched scoring) followed diagnostics that
-  were computed on the test year before the validation-first rule was adopted. The test year is therefore not a
-  clean confirmation for those two decisions. All later decisions used validation only.
+- **Test-set reuse** (see the caveats after the abstract). Validation numbers are reported beside test throughout;
+  all decisions after the validation-first rule used validation only.
 - **Disambiguation.** The split-profile flag is a heuristic and also catches correctly identified authors who share a
-  name. Removing all flagged IDs keeps the main result (pair-focused LightGBM 0.780 against Adamic-Adar 0.710,
-  difference +0.071, Holm p = 0.0068) but reduces the test positives from 2,533 to 1,546, so it checks a smaller, different
-  population. Merged profiles cannot be detected this way.
+  name. Removing all flagged IDs reduces the test positives from 2,533 to 1,546. The main result holds on that
+  subset (pair-focused LightGBM 0.780 against Adamic-Adar 0.710, difference +0.071, p < 0.01), but it is a smaller,
+  different population. Merged profiles cannot be detected this way.
 - **OpenAlex coverage and indexing lag.** The data reflect OpenAlex at the time of the snapshot. Works from 2025 are
   likely to be under-indexed, which affects the test labels; a fresh download would differ slightly.
 - **Right-censoring.** A pair counted as a negative may collaborate later. This can be checked on validation for one
@@ -260,37 +303,41 @@ only.
 - **Single institution.** Only collaborations between UTS authors are targets, and the graph covers UTS works.
   Results may not transfer to other institutions or to cross-institution collaborations.
 - **GNN not retrained.** The GNNs were trained before the distance shortcut was found and were not retrained, so the
-  GNN results understate what a correctly trained GNN could do, and the hybrid is built on a shortcut-trained model.
+  GNN results may understate what a correctly trained GNN could do, and the hybrid is built on a shortcut-trained
+  model. Retraining without the shortcut is the first item of future work.
+
+**Future work.** Retrain the GNNs without the distance shortcut (distance-2 positives only, now the default in the
+code) and repeat the comparison and explanations; evaluate on a clean held-out year (2026); design and test a
+deployable shortlisting step for the activity condition.
 
 # 10. Conclusion
 
 Under a strict evaluation, new UTS collaborations are moderately predictable. A LightGBM trained on the same kind of
-pairs it is scored on beats Adamic-Adar by about 0.07 to 0.09 AUC; node2vec and the GNN tested here do not beat the
-heuristic; and topical similarity adds a small, consistent gain beyond structure. The larger lesson is about
+pairs it is scored on beats the best heuristic by about 0.07 to 0.08 AUC, and a logistic regression trained on the
+same pairs does as well, so the training pairs matter more than the learner. node2vec and the shortcut-trained GNN
+tested here do not beat the heuristics, and topical similarity adds a small, consistent gain beyond structure. The larger lesson is about
 evaluation: unmatched activity, pooled newcomer composition and distance-matched training negatives each produce
 convincing numbers that do not measure the task, and each was found only by building controls and reference scores
 into the evaluation.
 
 # References
 
-All entries must be checked by the author before submission.
-
-- [VERIFY] Adamic, L. A., and Adar, E. (2003). Friends and neighbors on the Web. *Social Networks*, 25(3), 211-230.
-- [VERIFY] Efron, B., and Tibshirani, R. J. (1993). *An Introduction to the Bootstrap*. Chapman and Hall.
-- [VERIFY] Grover, A., and Leskovec, J. (2016). node2vec: Scalable feature learning for networks. *Proceedings of KDD 2016*, 855-864.
-- [VERIFY] Hamilton, W. L., Ying, R., and Leskovec, J. (2017). Inductive representation learning on large graphs. *Advances in Neural Information Processing Systems 30 (NeurIPS 2017)*.
-- [VERIFY] Holm, S. (1979). A simple sequentially rejective multiple test procedure. *Scandinavian Journal of Statistics*, 6(2), 65-70.
-- [VERIFY] Katz, L. (1953). A new status index derived from sociometric analysis. *Psychometrika*, 18(1), 39-43.
-- [VERIFY] Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., and Liu, T.-Y. (2017). LightGBM: A highly efficient gradient boosting decision tree. *Advances in Neural Information Processing Systems 30 (NeurIPS 2017)*.
-- [VERIFY] Li, J., Shomer, H., Mao, H., Zeng, S., Ma, Y., Shah, N., Tang, J., and Yin, D. (2023). Evaluating graph neural networks for link prediction: Current pitfalls and new benchmarking. *Advances in Neural Information Processing Systems 36 (NeurIPS 2023), Datasets and Benchmarks Track*.
-- [VERIFY] Liben-Nowell, D., and Kleinberg, J. (2007). The link-prediction problem for social networks. *Journal of the American Society for Information Science and Technology*, 58(7), 1019-1031.
-- [VERIFY] Lundberg, S. M., and Lee, S.-I. (2017). A unified approach to interpreting model predictions. *Advances in Neural Information Processing Systems 30 (NeurIPS 2017)*.
-- [VERIFY] Lundberg, S. M., Erion, G., Chen, H., DeGrave, A., Prutkin, J. M., Nair, B., Katz, R., Himmelfarb, J., Bansal, N., and Lee, S.-I. (2020). From local explanations to global understanding with explainable AI for trees. *Nature Machine Intelligence*, 2, 56-67.
-- [VERIFY] Newman, M. E. J. (2001). Clustering and preferential attachment in growing networks. *Physical Review E*, 64, 025102.
-- [VERIFY] Platt, J. (1999). Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods. In *Advances in Large Margin Classifiers*, MIT Press.
-- [VERIFY] Priem, J., Piwowar, H., and Orr, R. (2022). OpenAlex: A fully-open index of scholarly works, authors, venues, institutions, and concepts. arXiv:2205.01833.
-- [VERIFY] Sundararajan, M., Taly, A., and Yan, Q. (2017). Axiomatic attribution for deep networks. *Proceedings of ICML 2017*.
-- [VERIFY] Velickovic, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., and Bengio, Y. (2018). Graph attention networks. *International Conference on Learning Representations (ICLR 2018)*.
-- [VERIFY] Yang, Y., Lichtenwalter, R. N., and Chawla, N. V. (2015). Evaluating link prediction methods. *Knowledge and Information Systems*, 45(3), 751-782.
-- [VERIFY] Ying, R., Bourgeois, D., You, J., Zitnik, M., and Leskovec, J. (2019). GNNExplainer: Generating explanations for graph neural networks. *Advances in Neural Information Processing Systems 32 (NeurIPS 2019)*.
-- [VERIFY] Zhou, T., Lu, L., and Zhang, Y.-C. (2009). Predicting missing links via local information. *The European Physical Journal B*, 71, 623-630.
+- Adamic, L. A., and Adar, E. (2003). Friends and neighbors on the Web. *Social Networks*, 25(3), 211-230.
+- Efron, B., and Tibshirani, R. J. (1993). *An Introduction to the Bootstrap*. Chapman and Hall.
+- Grover, A., and Leskovec, J. (2016). node2vec: Scalable feature learning for networks. *Proceedings of KDD 2016*, 855-864.
+- Hamilton, W. L., Ying, R., and Leskovec, J. (2017). Inductive representation learning on large graphs. *Advances in Neural Information Processing Systems 30 (NeurIPS 2017)*.
+- Holm, S. (1979). A simple sequentially rejective multiple test procedure. *Scandinavian Journal of Statistics*, 6(2), 65-70.
+- Katz, L. (1953). A new status index derived from sociometric analysis. *Psychometrika*, 18(1), 39-43.
+- Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., and Liu, T.-Y. (2017). LightGBM: A highly efficient gradient boosting decision tree. *Advances in Neural Information Processing Systems 30 (NeurIPS 2017)*.
+- Li, J., Shomer, H., Mao, H., Zeng, S., Ma, Y., Shah, N., Tang, J., and Yin, D. (2023). Evaluating graph neural networks for link prediction: Current pitfalls and new benchmarking. *Advances in Neural Information Processing Systems 36 (NeurIPS 2023), Datasets and Benchmarks Track*.
+- Liben-Nowell, D., and Kleinberg, J. (2007). The link-prediction problem for social networks. *Journal of the American Society for Information Science and Technology*, 58(7), 1019-1031.
+- Lundberg, S. M., and Lee, S.-I. (2017). A unified approach to interpreting model predictions. *Advances in Neural Information Processing Systems 30 (NeurIPS 2017)*.
+- Lundberg, S. M., Erion, G., Chen, H., DeGrave, A., Prutkin, J. M., Nair, B., Katz, R., Himmelfarb, J., Bansal, N., and Lee, S.-I. (2020). From local explanations to global understanding with explainable AI for trees. *Nature Machine Intelligence*, 2, 56-67.
+- Newman, M. E. J. (2001). Clustering and preferential attachment in growing networks. *Physical Review E*, 64, 025102.
+- Platt, J. (1999). Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods. In *Advances in Large Margin Classifiers*, pp. 61-74. MIT Press.
+- Priem, J., Piwowar, H., and Orr, R. (2022). OpenAlex: A fully-open index of scholarly works, authors, venues, institutions, and concepts. arXiv:2205.01833.
+- Sundararajan, M., Taly, A., and Yan, Q. (2017). Axiomatic attribution for deep networks. *Proceedings of ICML 2017*.
+- Velickovic, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., and Bengio, Y. (2018). Graph attention networks. *International Conference on Learning Representations (ICLR 2018)*.
+- Yang, Y., Lichtenwalter, R. N., and Chawla, N. V. (2015). Evaluating link prediction methods. *Knowledge and Information Systems*, 45(3), 751-782.
+- Ying, R., Bourgeois, D., You, J., Zitnik, M., and Leskovec, J. (2019). GNNExplainer: Generating explanations for graph neural networks. *Advances in Neural Information Processing Systems 32 (NeurIPS 2019)*.
+- Zhou, T., Lü, L., and Zhang, Y.-C. (2009). Predicting missing links via local information. *The European Physical Journal B*, 71, 623-630.
