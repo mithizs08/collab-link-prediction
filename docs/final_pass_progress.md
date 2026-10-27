@@ -25,11 +25,7 @@ Reviewer notes that motivate it: `docs/reviewer_pass.md`.
 - Committed locally as fa271ea (plus this progress update).
 
 ## In progress
-- Push: `git push origin main` hung waiting on `git credential-osxkeychain get` (a macOS Keychain approval;
-  2026-10-28). Run `git push origin main` from a terminal and approve the Keychain prompt if it appears.
+- (none) Pushed as 3b76b68 (2026-10-28); origin/main matches local main.
 
 ## Next
 - Nothing else in the final pass.
-
-## Next
-- Step 1 wording (README, report), step 3 references, step 4 numbers.yaml + check_numbers + make test + fresh clone + push.
